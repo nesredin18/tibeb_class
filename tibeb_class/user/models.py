@@ -4,10 +4,27 @@ from django.utils import timezone
 from datetime import timedelta
 
 class CustomUser(AbstractUser):
-    # You can add custom fields here (optional)
-    pass
+    ROLE_CHOICES = (
+        ('student', 'Student'),
+        ('parent', 'Parent'),
+    )
+    role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
+
     def __str__(self):
         return self.username
+class ParentChild(models.Model):
+    parent = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='children')
+    child = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='parents')
+    Relation_Status = (
+        ('active', 'Active'),
+        ('pending', 'Pending'),
+        ('rejected', 'Rejected'),
+    )
+    status = models.CharField(max_length=10, choices=Relation_Status, default='pending')
+
+    class Meta:
+        unique_together = ('parent', 'child')
+
     
 class SubsectionProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='progress')
@@ -26,6 +43,17 @@ class UserSubscription(models.Model):
     start_date = models.DateField(auto_now_add=True)
     end_date = models.DateField()
     is_active = models.BooleanField(default=True)
+    Payment_Status = (
+        ('paid', 'Paid'),
+        ('unpaid', 'Unpaid'),
+    )
+    payment_status = models.CharField(max_length=10, choices=Payment_Status, default='unpaid')
+    Status= (
+        ('active', 'Active'),
+        ('expired', 'Expired'),
+        ('pending', 'Pending'),
+    )
+    status = models.CharField(max_length=10, choices=Status, default='active')
 
     def save(self, *args, **kwargs):
         if not self.end_date:
