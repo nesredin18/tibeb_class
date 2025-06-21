@@ -43,10 +43,12 @@ INSTALLED_APPS = [
     'subscription',
     'rest_framework',
     "rest_framework.authtoken",
-    'contents'
+    'contents',
+    'corsheaders'
 ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -72,6 +74,8 @@ TEMPLATES = [
         },
     },
 ]
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 WSGI_APPLICATION = 'tibeb_class.wsgi.application'
 

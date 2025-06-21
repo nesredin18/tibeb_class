@@ -9,6 +9,8 @@ class CustomUser(AbstractUser):
         ('parent', 'Parent'),
     )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
+    grades = models.ManyToManyField('contents.Grade', related_name='users', blank=True)
+    phone_number = models.CharField(max_length=15, blank=True, null=True)
 
     def __str__(self):
         return self.username
@@ -28,13 +30,13 @@ class ParentChild(models.Model):
     
 class SubsectionProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='progress')
-    subsection = models.ForeignKey('contents.Subsection', on_delete=models.CASCADE)
-    completed = models.BooleanField(default=False)
+    video = models.ForeignKey('contents.Video', on_delete=models.CASCADE, null=True, blank=True)
+    completed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
     watched_seconds = models.PositiveIntegerField(default=0)
     last_watched_at = models.DateTimeField(auto_now=True)
 
     class Meta:
-        unique_together = ('user', 'subsection')
+        unique_together = ('user','video')
 
 class UserSubscription(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='subscriptions')
@@ -62,3 +64,14 @@ class UserSubscription(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.subscription_plan.name}"
+    
+class User_Grade(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='user_grades')
+    grade = models.ForeignKey('contents.Grade', on_delete=models.CASCADE, related_name='user_grades')
+    is_active = models.BooleanField(default=True)
+
+    class Meta:
+        unique_together = ('user', 'grade')
+
+    def __str__(self):
+        return f"{self.user.username} - {self.grade.name}"

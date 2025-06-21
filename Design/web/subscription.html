@@ -1,0 +1,266 @@
+<html><head>
+<meta charset="utf-8"/>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Lexend%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style type="text/tailwindcss">
+      :root {
+        --primary-color: #1978e5;
+        --secondary-color: #0e141b;
+        --accent-color: #e7edf3;
+        --text-primary: #0e141b;
+        --text-secondary: #4e7097;
+        --background-primary: #ffffff;
+        --background-secondary: #f8f9fa;
+        --border-color: #d0dbe7;
+      }
+      body {
+        font-family: 'Lexend', 'Noto Sans', sans-serif;
+      }
+      .group\/design-root {
+        background-color: var(--background-primary);
+      }
+      .layout-container header {
+        border-bottom-color: var(--border-color);
+        background-color: var(--background-primary);
+      }
+      .text-logo {
+        color: var(--secondary-color);
+      }
+      .nav-link {
+        color: var(--text-primary);
+      }
+      .nav-link:hover {
+        color: var(--primary-color);
+      }
+      .button-primary {
+        background-color: var(--primary-color);
+        color: var(--background-primary);
+      }
+      .button-primary:hover {
+        background-color: #145ea8;}
+      .button-secondary {
+        background-color: var(--accent-color);
+        color: var(--text-primary);
+      }
+      .button-secondary:hover {
+        background-color: #d0dbe7;}
+      .plan-card {
+        border-color: var(--border-color);
+        background-color: var(--background-secondary);
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+      }
+      .plan-card:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 10px 20px rgba(0, 0, 0, 0.1);
+      }
+      .plan-card.recommended {
+        border-color: var(--primary-color);
+        border-width: 2px;
+      }
+      .badge-best-value {
+        background-color: var(--primary-color);
+        color: var(--background-primary);
+      }
+      .form-input {
+        border-color: var(--border-color);
+        background-color: var(--background-secondary);
+      }
+      .form-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px rgba(25, 120, 229, 0.2);}
+      .footer-link {
+        color: var(--text-secondary);
+      }
+      .footer-link:hover {
+        color: var(--primary-color);
+      }
+      .icon-primary {
+        color: var(--primary-color);
+      }
+    </style>
+</head>
+<body>
+<div class="relative flex size-full min-h-screen flex-col group/design-root overflow-x-hidden" style="--select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(78,112,151)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');">
+<div class="layout-container flex h-full grow flex-col">
+<header class="sticky top-0 z-50 flex items-center justify-between whitespace-nowrap border-b border-solid px-10 py-4 shadow-sm">
+<div class="flex items-center gap-4 text-logo">
+<div class="size-8 text-[var(--primary-color)]">
+<svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 4H42V17.3333V30.6667H24V44H6V30.6667V17.3333H24V4Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-logo text-2xl font-bold leading-tight tracking-[-0.015em]">TigrayEdu</h2>
+</div>
+<nav class="flex items-center gap-8">
+<a class="nav-link text-base font-medium leading-normal" href="#">Home</a>
+<a class="nav-link text-base font-medium leading-normal" href="#">Courses</a>
+<a class="nav-link text-base font-medium leading-normal" href="#">Instructors</a>
+<a class="nav-link text-base font-medium leading-normal text-[var(--primary-color)]" href="#">Pricing</a>
+<button class="button-primary flex min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-10 px-6 text-sm font-bold leading-normal tracking-[0.015em]">
+<span class="truncate">Sign in</span>
+</button>
+</nav>
+</header>
+<main class="px-40 flex flex-1 justify-center py-12 bg-[var(--background-secondary)]">
+<div class="layout-content-container flex flex-col max-w-[1080px] flex-1">
+<div class="flex flex-wrap justify-between items-center gap-3 p-4 mb-8">
+<h1 class="text-[var(--text-primary)] tracking-tight text-4xl font-bold leading-tight min-w-72">Choose Your Plan</h1>
+</div>
+<div class="grid grid-cols-[repeat(auto-fit,minmax(280px,1fr))] gap-8 px-4 py-3 @3xl:grid-cols-3">
+<div class="plan-card flex flex-1 flex-col gap-6 rounded-xl border border-solid p-8 shadow-lg">
+<div class="flex flex-col gap-2">
+<h2 class="text-[var(--text-primary)] text-xl font-bold leading-tight">Basic</h2>
+<p class="flex items-baseline gap-1 text-[var(--text-primary)]">
+<span class="text-[var(--text-primary)] text-5xl font-black leading-tight tracking-[-0.033em]">Free</span>
+<span class="text-[var(--text-secondary)] text-lg font-medium leading-tight">/month</span>
+</p>
+</div>
+<button class="button-secondary flex w-full min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-6 text-base font-bold leading-normal tracking-[0.015em]">
+<span class="truncate">Get Started</span>
+</button>
+<div class="flex flex-col gap-3 pt-2">
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Access to selected free courses
+                  </div>
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Limited learning resources
+                  </div>
+</div>
+</div>
+<div class="plan-card recommended flex flex-1 flex-col gap-6 rounded-xl border border-solid p-8 shadow-xl relative">
+<div class="absolute top-0 right-6 -mt-4">
+<p class="badge-best-value text-xs font-semibold leading-normal tracking-[0.015em] rounded-full px-4 py-1.5 text-center">Best Value</p>
+</div>
+<div class="flex flex-col gap-2">
+<h2 class="text-[var(--text-primary)] text-xl font-bold leading-tight">Premium</h2>
+<p class="flex items-baseline gap-1 text-[var(--text-primary)]">
+<span class="text-[var(--primary-color)] text-5xl font-black leading-tight tracking-[-0.033em]">$19.99</span>
+<span class="text-[var(--text-secondary)] text-lg font-medium leading-tight">/month</span>
+</p>
+</div>
+<button class="button-primary flex w-full min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-6 text-base font-bold leading-normal tracking-[0.015em]">
+<span class="truncate">Choose Premium</span>
+</button>
+<div class="flex flex-col gap-3 pt-2">
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Access to all courses &amp; materials
+                  </div>
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Unlimited learning resources
+                  </div>
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Priority community support
+                  </div>
+</div>
+</div>
+<div class="plan-card flex flex-1 flex-col gap-6 rounded-xl border border-solid p-8 shadow-lg">
+<div class="flex flex-col gap-2">
+<h2 class="text-[var(--text-primary)] text-xl font-bold leading-tight">Ultimate</h2>
+<p class="flex items-baseline gap-1 text-[var(--text-primary)]">
+<span class="text-[var(--text-primary)] text-5xl font-black leading-tight tracking-[-0.033em]">$49.99</span>
+<span class="text-[var(--text-secondary)] text-lg font-medium leading-tight">/month</span>
+</p>
+</div>
+<button class="button-secondary flex w-full min-w-[84px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-6 text-base font-bold leading-normal tracking-[0.015em]">
+<span class="truncate">Choose Ultimate</span>
+</button>
+<div class="flex flex-col gap-3 pt-2">
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    All Premium features
+                  </div>
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Dedicated 1-on-1 support
+                  </div>
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Exclusive workshops &amp; content
+                  </div>
+<div class="text-sm font-normal leading-normal flex items-center gap-3 text-[var(--text-primary)]">
+<div class="icon-primary" data-icon="Check" data-size="20px" data-weight="bold">
+<svg fill="currentColor" height="20px" viewBox="0 0 256 256" width="20px" xmlns="http://www.w3.org/2000/svg"><path d="M229.66,77.66l-128,128a8,8,0,0,1-11.32,0l-56-56a8,8,0,0,1,11.32-11.32L96,188.69,218.34,66.34a8,8,0,0,1,11.32,11.32Z" stroke="currentColor" stroke-width="8"></path></svg>
+</div>
+                    Early access to new features
+                  </div>
+</div>
+</div>
+</div>
+<div class="mt-16 bg-[var(--background-primary)] p-8 rounded-xl shadow-lg">
+<h2 class="text-[var(--text-primary)] text-3xl font-bold leading-tight tracking-[-0.015em] mb-8">Customize Your Subscription</h2>
+<div class="grid grid-cols-1 md:grid-cols-2 gap-8 mb-6">
+<label class="flex flex-col">
+<p class="text-[var(--text-primary)] text-base font-medium leading-normal pb-2">Select Grade</p>
+<select class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] border h-14 bg-[image:--select-button-svg] placeholder:text-[var(--text-secondary)] p-[15px] text-base font-normal leading-normal appearance-none">
+<option value="">Select Grade Level</option>
+<option value="grade-1">Grade 1</option>
+<option value="grade-2">Grade 2</option>
+<option value="grade-3">Grade 3</option>
+<option value="grade-9">Grade 9</option>
+<option value="grade-10">Grade 10</option>
+<option value="grade-12">Grade 12</option>
+</select>
+</label>
+<label class="flex flex-col">
+<p class="text-[var(--text-primary)] text-base font-medium leading-normal pb-2">Select Duration</p>
+<select class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] border h-14 bg-[image:--select-button-svg] placeholder:text-[var(--text-secondary)] p-[15px] text-base font-normal leading-normal appearance-none">
+<option value="">Select Subscription Duration</option>
+<option value="monthly">Monthly</option>
+<option value="quarterly">Quarterly (Save 10%)</option>
+<option value="annually">Annually (Save 20%)</option>
+</select>
+</label>
+</div>
+<div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-[var(--accent-color)] p-6 rounded-lg">
+<p class="text-[var(--text-secondary)] text-base font-normal leading-normal">
+                        Total: <span class="text-[var(--primary-color)] text-2xl font-bold">$0.00</span>
+<span class="text-sm block md:inline">(Price will update based on your selections)</span>
+</p>
+<button class="button-primary flex min-w-[150px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-full h-12 px-8 text-base font-bold leading-normal tracking-[0.015em]">
+<span class="truncate">Proceed to Checkout</span>
+</button>
+</div>
+</div>
+</div>
+</main>
+<footer class="flex justify-center border-t border-solid border-[var(--border-color)] bg-[var(--background-primary)]">
+<div class="flex max-w-[1080px] flex-1 flex-col">
+<footer class="flex flex-col gap-8 px-5 py-12 text-center @container">
+<div class="flex flex-wrap items-center justify-center gap-x-8 gap-y-4 @[480px]:flex-row @[480px]:justify-around">
+<a class="footer-link text-base font-normal leading-normal min-w-40" href="#">About Us</a>
+<a class="footer-link text-base font-normal leading-normal min-w-40" href="#">Contact Support</a>
+<a class="footer-link text-base font-normal leading-normal min-w-40" href="#">Privacy Policy</a>
+<a class="footer-link text-base font-normal leading-normal min-w-40" href="#">Terms of Service</a>
+</div>
+<p class="text-[var(--text-secondary)] text-sm font-normal leading-normal">© 2023 TigrayEdu. Empowering Ethiopian Students. All rights reserved.</p>
+</footer>
+</div>
+</footer>
+</div>
+</div>
+
+</body></html>
