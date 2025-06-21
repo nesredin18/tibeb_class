@@ -2,7 +2,8 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
-from .serializers import GradeSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer
+from .serializers import GradeSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer,SubjectMiniSerializer
+import random
 
 @api_view(['GET'])
 def get_grades(request):
@@ -45,3 +46,33 @@ def get_videos(request):
     videos = Video.objects.all()
     serializer = VideoSerializer(videos, many=True)
     return Response(serializer.data)
+@api_view(['GET'])
+def featured_subjects(request):
+    grade_id = request.query_params.get('grade_id')
+
+    if grade_id:
+        try:
+            grade = Grade.objects.get(id=grade_id)
+        except Grade.DoesNotExist:
+            return Response({'error': 'Grade not found'}, status=status.HTTP_404_NOT_FOUND)
+
+        subjects = Subject.objects.filter(grade=grade)[:3]
+        serialized = SubjectMiniSerializer(subjects, many=True)
+        return Response({
+            'grade_id': grade.id,
+            'grade_name': grade.name,
+            'featured_subjects': serialized.data
+        }, status=200)
+
+    # If no grade_id is provided, return 3 random subjects across all grades
+    subjects = list(Subject.objects.all())
+    random.shuffle(subjects)
+    selected_subjects = subjects[:3]
+
+    serialized = SubjectMiniSerializer(selected_subjects, many=True)
+
+    return Response({
+        'grade_id': None,
+        'grade_name': None,
+        'featured_subjects': serialized.data
+    }, status=200)

@@ -1,7 +1,7 @@
 from django.urls import path
 from .views import (
     get_grades, get_subjects, get_books, get_chapters, get_subsections,
-    get_exercises, get_videos
+    get_exercises, get_videos,featured_subjects
 )
 
 urlpatterns = [
@@ -12,5 +12,6 @@ urlpatterns = [
     path('subsections/', get_subsections, name='get-subsections'),
     path('exercises/', get_exercises, name='get-exercises'),
     path('videos/', get_videos, name='get-videos'),
+    path('featured-subjects/', featured_subjects, name='featured-subjects'),
 
 ]

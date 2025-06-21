@@ -37,4 +37,8 @@ class ExerciseSerializer(serializers.ModelSerializer):
     class Meta:
         model = Video
         fields = '__all__'
+class SubjectMiniSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Subject
+        fields = ['id', 'name','description']
     
