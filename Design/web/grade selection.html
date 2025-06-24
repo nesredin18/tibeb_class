@@ -5,6 +5,7 @@
 <title>Stitch Design</title>
 <link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
 <script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
 </head>
 <body>
 <div class="relative flex size-full min-h-screen flex-col bg-slate-50 group/design-root overflow-x-hidden" style='font-family: Lexend, "Noto Sans", sans-serif;'>
@@ -33,30 +34,50 @@
 <main class="flex flex-1 items-center justify-center py-16 px-4">
 <div class="w-full max-w-md rounded-xl bg-white p-8 shadow-lg">
 <h2 class="text-slate-900 text-3xl font-bold leading-tight text-center mb-8">Select Your Grade</h2>
-<div class="grid grid-cols-2 gap-4 mb-8">
-<label class="group relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-slate-200 p-4 h-16 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 has-[:checked]:border-[#1978e5] has-[:checked]:bg-[#1978e5]/10 has-[:checked]:text-[#1978e5]">
-<span class="text-lg font-semibold">Grade 9</span>
-<input class="absolute opacity-0 w-0 h-0" name="grade-selection" type="radio"/>
-</label>
-<label class="group relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-slate-200 p-4 h-16 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 has-[:checked]:border-[#1978e5] has-[:checked]:bg-[#1978e5]/10 has-[:checked]:text-[#1978e5]">
-<span class="text-lg font-semibold">Grade 10</span>
-<input class="absolute opacity-0 w-0 h-0" name="grade-selection" type="radio"/>
-</label>
-<label class="group relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-slate-200 p-4 h-16 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 has-[:checked]:border-[#1978e5] has-[:checked]:bg-[#1978e5]/10 has-[:checked]:text-[#1978e5]">
-<span class="text-lg font-semibold">Grade 11</span>
-<input class="absolute opacity-0 w-0 h-0" name="grade-selection" type="radio"/>
-</label>
-<label class="group relative flex cursor-pointer items-center justify-center rounded-lg border-2 border-slate-200 p-4 h-16 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 has-[:checked]:border-[#1978e5] has-[:checked]:bg-[#1978e5]/10 has-[:checked]:text-[#1978e5]">
-<span class="text-lg font-semibold">Grade 12</span>
-<input class="absolute opacity-0 w-0 h-0" name="grade-selection" type="radio"/>
-</label>
+<div class="grid grid-cols-1 gap-4">
+<a class="group relative flex items-center gap-4 cursor-pointer rounded-lg border-2 border-slate-200 p-4 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 focus-within:border-[#1978e5] focus-within:bg-[#1978e5]/10 focus-within:text-[#1978e5]" href="#">
+<span class="material-icons text-4xl text-[#1978e5] group-hover:text-[#1978e5] group-focus-within:text-[#1978e5]">looks_one</span>
+<div class="flex-1">
+<span class="text-lg font-semibold mb-2 block">Grade 9</span>
+<div class="w-full bg-slate-200 rounded-full h-2.5">
+<div class="bg-[#1978e5] h-2.5 rounded-full" style="width: 45%"></div>
 </div>
-<button class="flex w-full items-center justify-center rounded-lg h-12 px-6 bg-[#1978e5] hover:bg-[#135cb0] text-slate-50 text-lg font-semibold tracking-wide transition-colors focus:outline-none focus:ring-2 focus:ring-[#1978e5] focus:ring-offset-2">
-<span class="truncate">Continue</span>
-</button>
+<span class="text-xs text-slate-500 mt-1 self-end block text-right">45% Complete</span>
+</div>
+</a>
+<a class="group relative flex items-center gap-4 cursor-pointer rounded-lg border-2 border-slate-200 p-4 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 focus-within:border-[#1978e5] focus-within:bg-[#1978e5]/10 focus-within:text-[#1978e5]" href="#">
+<span class="material-icons text-4xl text-[#1978e5] group-hover:text-[#1978e5] group-focus-within:text-[#1978e5]">looks_two</span>
+<div class="flex-1">
+<span class="text-lg font-semibold mb-2 block">Grade 10</span>
+<div class="w-full bg-slate-200 rounded-full h-2.5">
+<div class="bg-[#1978e5] h-2.5 rounded-full" style="width: 70%"></div>
+</div>
+<span class="text-xs text-slate-500 mt-1 self-end block text-right">70% Complete</span>
+</div>
+</a>
+<a class="group relative flex items-center gap-4 cursor-pointer rounded-lg border-2 border-slate-200 p-4 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 focus-within:border-[#1978e5] focus-within:bg-[#1978e5]/10 focus-within:text-[#1978e5]" href="#">
+<span class="material-icons text-4xl text-[#1978e5] group-hover:text-[#1978e5] group-focus-within:text-[#1978e5]">looks_3</span>
+<div class="flex-1">
+<span class="text-lg font-semibold mb-2 block">Grade 11</span>
+<div class="w-full bg-slate-200 rounded-full h-2.5">
+<div class="bg-[#1978e5] h-2.5 rounded-full" style="width: 20%"></div>
+</div>
+<span class="text-xs text-slate-500 mt-1 self-end block text-right">20% Complete</span>
+</div>
+</a>
+<a class="group relative flex items-center gap-4 cursor-pointer rounded-lg border-2 border-slate-200 p-4 text-slate-700 transition-all hover:border-[#1978e5] hover:bg-[#1978e5]/5 focus-within:border-[#1978e5] focus-within:bg-[#1978e5]/10 focus-within:text-[#1978e5]" href="#">
+<span class="material-icons text-4xl text-slate-400 group-hover:text-[#1978e5] group-focus-within:text-[#1978e5]">looks_4</span>
+<div class="flex-1">
+<span class="text-lg font-semibold mb-2 block">Grade 12</span>
+<div class="w-full bg-slate-200 rounded-full h-2.5">
+<div class="bg-slate-400 group-hover:bg-[#1978e5] group-focus-within:bg-[#1978e5] h-2.5 rounded-full" style="width: 0%"></div>
+</div>
+<span class="text-xs text-slate-500 mt-1 self-end block text-right">0% Complete</span>
+</div>
+</a>
+</div>
 </div>
 </main>
 </div>
 </div>
-
 </body></html>

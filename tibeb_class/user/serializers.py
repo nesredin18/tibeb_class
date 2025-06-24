@@ -34,4 +34,15 @@ class UserSerializer(serializers.ModelSerializer):
         if grades_data:
             user.grades.set(grades_data)
         return user
+class UserUpdateSerializer(serializers.ModelSerializer):
+    grades = serializers.PrimaryKeyRelatedField(
+        queryset=Grade.objects.all(), many=True, required=False
+    )
+    phone_number = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'grades', 'phone_number', 'first_name', 'last_name'
+        ]
 

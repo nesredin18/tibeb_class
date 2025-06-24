@@ -3,12 +3,14 @@ from .views import signup, login, test
 from .views import get_user_info, get_pending_requests, get_accepted_requests, get_progress
 from .views import create_user_subscription, get_active_subscription,update_progress,aggregated_progress_chapter_level
 from .views import start_grade,user_grade,aggregated_progress_per_grade,aggregated_progress_chapter_level,aggregated_progress_subject_level,aggregated_progress_subsection_level
-from .views import subsection_progress_summary
+from .views import subsection_progress_summary,update_user,get_user_info
 
 
 urlpatterns = [
     path('signup/', signup, name='signup'),
+    path('update/', update_user, name='update-user'),
     path('login/', login, name='login'),
+    path('',get_user_info, name='user-info'),
     path('test/', test, name='test'),
     path('user/info/', get_user_info, name='user-info'),
     path('student/parent-requests/', get_pending_requests, name='parent-requests'),

@@ -1,17 +1,19 @@
-from datetime import timezone
+from django.utils import timezone
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
-from .serializers import UserSerializer
+from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from .models import ParentChild, SubsectionProgress, User_Grade,UserSubscription
-from contents.models import Subsection
+from contents.models import Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
+from django.utils.timezone import make_aware
+from datetime import datetime
 
 
 User = get_user_model()
@@ -50,6 +52,43 @@ def signup(request):
         return Response({'token': token.key, 'user': serializer.data}, status=status.HTTP_201_CREATED)
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['PUT', 'PATCH'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def update_user(request):
+    user = request.user
+    data = request.data.copy()
+
+    grade_ids = data.getlist('grades') if hasattr(data, 'getlist') else data.get('grades', [])
+    if isinstance(grade_ids, str):
+        grade_ids = [grade_ids]
+
+    if grade_ids:
+        for grade_id in grade_ids:
+            if not Grade.objects.filter(id=grade_id).exists():
+                return Response({'error': f'Invalid grade ID: {grade_id}'}, status=status.HTTP_400_BAD_REQUEST)
+
+    serializer = UserUpdateSerializer(user, data=data, partial=True)
+    if serializer.is_valid():
+        user = serializer.save()
+
+        if grade_ids:
+            user.grades.set(grade_ids)
+
+            existing_user_grades = set(
+                User_Grade.objects.filter(user=user).values_list('grade_id', flat=True)
+            )
+            new_grade_ids = set(int(gid) for gid in grade_ids) - existing_user_grades
+
+            for grade_id in new_grade_ids:
+                grade = Grade.objects.get(id=grade_id)
+                User_Grade.objects.create(user=user, grade=grade)
+
+        return Response({'message': 'User information updated successfully.'}, status=status.HTTP_200_OK)
+
+    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
 
 
 
@@ -152,7 +191,12 @@ def get_user_info(request):
         'id': user.id,
         'username': user.username,
         'email': user.email,
-        'role': user.role
+        'role': user.role,
+        'first_name': user.first_name,
+        'last_name': user.last_name,
+        'phone_number': user.phone_number,
+        'grades': [grade.id for grade in user.grades.all()],
+
     }, status=200)
 
 @api_view(['GET'])
@@ -377,11 +421,13 @@ def aggregated_progress_per_grade(request):
         })
 
     # Sort by last_watched_at (most recent first), None values last
-    sorted_result = sorted(
+        min_datetime = timezone.make_aware(datetime.min)
+
+        sorted_result = sorted(
         result,
-        key=lambda x: x['last_watched_at'] or datetime.min,
+        key=lambda x: x['last_watched_at'] or min_datetime,
         reverse=True
-    )
+        )
 
     return Response({
         'level': 'grade',
@@ -434,7 +480,7 @@ def aggregated_progress_subject_level(request):
     return Response({
         'grade_id': parent_id,
         'level': 'subject',
-        'subject_progress': result
+        'subjects_progress': result
     }, status=200)
 
 @api_view(['GET'])
@@ -485,7 +531,7 @@ def aggregated_progress_chapter_level(request):
     return Response({
         'subject_id': parent_id,
         'level': 'chapter',
-        'chapter_progress': result
+        'chapters_progress': result
     }, status=200)
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -534,7 +580,7 @@ def aggregated_progress_subsection_level(request):
     return Response({
         'chapter_id': parent_id,
         'level': 'subsection',
-        'subsection_progress': result
+        'subsections_progress': result
     }, status=200)
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])

@@ -16,6 +16,21 @@ def get_subjects(request):
     subjects = Subject.objects.all()
     serializer = SubjectSerializer(subjects, many=True)
     return Response(serializer.data)
+@api_view(['GET'])
+def subjects_by_grade(request, grade_id):
+    try:
+        grade = Grade.objects.get(id=grade_id)
+    except Grade.DoesNotExist:
+        return Response({'error': 'Grade not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    subjects = Subject.objects.filter(grade=grade)
+    serializer = SubjectSerializer(subjects, many=True)
+
+    return Response({
+        'grade_id': grade.id,
+        'grade_name': grade.name,
+        'subjects': serializer.data
+    }, status=200)
 
 @api_view(['GET'])
 def get_books(request):
@@ -28,12 +43,48 @@ def get_chapters(request):
     chapters = Chapter.objects.all()
     serializer = ChapterSerializer(chapters, many=True)
     return Response(serializer.data)
+@api_view(['GET'])
+def chapters_by_subject(request, subject_id):
+    try:
+        subject = Subject.objects.get(id=subject_id)
+    except Subject.DoesNotExist:
+        return Response({'error': 'Subject not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    chapters = Chapter.objects.filter(subject=subject)
+    serializer = ChapterSerializer(chapters, many=True)
+
+    return Response({
+        'grade_id': subject.grade.id,
+        'grade_name': subject.grade.name,
+        'subject_id': subject.id,
+        'subject_name': subject.name,
+        'chapters': serializer.data
+    }, status=200)
 
 @api_view(['GET'])
 def get_subsections(request):
     subsections = Subsection.objects.all()
     serializer = SubsectionSerializer(subsections, many=True)
     return Response(serializer.data)
+@api_view(['GET'])
+def subsections_by_chapter(request, chapter_id):
+    try:
+        chapter = Chapter.objects.get(id=chapter_id)
+    except Chapter.DoesNotExist:
+        return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    subsections = Subsection.objects.filter(chapter=chapter)
+    serializer = SubsectionSerializer(subsections, many=True)
+
+    return Response({
+        'grade_id': chapter.subject.grade.id,
+        'grade_name': chapter.subject.grade.name,
+        'subject_id': chapter.subject.id,
+        'subject_name': chapter.subject.name,
+        'chapter_id': chapter.id,
+        'chapter_title': chapter.title,
+        'subsections': serializer.data
+    }, status=200)
 
 @api_view(['GET'])
 def get_exercises(request):
