@@ -44,6 +44,15 @@ def get_chapters(request):
     serializer = ChapterSerializer(chapters, many=True)
     return Response(serializer.data)
 @api_view(['GET'])
+def get_chapter_by_id(request, chapter_id):
+    try:
+        chapter = Chapter.objects.get(id=chapter_id)
+    except Chapter.DoesNotExist:
+        return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
+    serializer = ChapterSerializer(chapter)
+
+    return Response(serializer.data, status=200)
+@api_view(['GET'])
 def chapters_by_subject(request, subject_id):
     try:
         subject = Subject.objects.get(id=subject_id)
@@ -67,6 +76,16 @@ def get_subsections(request):
     serializer = SubsectionSerializer(subsections, many=True)
     return Response(serializer.data)
 @api_view(['GET'])
+def get_subsection_by_id(request, subsection_id):
+    try:
+        subsection = Subsection.objects.get(id=subsection_id)
+    except Subsection.DoesNotExist:
+        return Response({'error': 'Subsection not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = SubsectionSerializer(subsection)
+    return Response(serializer.data, status=200)
+
+@api_view(['GET'])
 def subsections_by_chapter(request, chapter_id):
     try:
         chapter = Chapter.objects.get(id=chapter_id)
@@ -82,7 +101,7 @@ def subsections_by_chapter(request, chapter_id):
         'subject_id': chapter.subject.id,
         'subject_name': chapter.subject.name,
         'chapter_id': chapter.id,
-        'chapter_title': chapter.title,
+        'chapter_name': chapter.title,
         'subsections': serializer.data
     }, status=200)
 
@@ -97,6 +116,21 @@ def get_videos(request):
     videos = Video.objects.all()
     serializer = VideoSerializer(videos, many=True)
     return Response(serializer.data)
+@api_view(['GET'])
+def videos_by_subsection(request, subsection_id):
+    try:
+        subsection = Subsection.objects.get(id=subsection_id)
+    except Subsection.DoesNotExist:
+        return Response({'error': 'Subsection not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    videos = Video.objects.filter(subsection=subsection)
+    serializer = VideoSerializer(videos, many=True)
+
+    return Response({
+        'subsection_id': subsection.id,
+        'subsection_title': subsection.title,
+        'videos': serializer.data
+    }, status=200)
 @api_view(['GET'])
 def featured_subjects(request):
     grade_id = request.query_params.get('grade_id')

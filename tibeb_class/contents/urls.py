@@ -2,7 +2,8 @@ from django.urls import path
 from .views import (
     get_grades, get_subjects, get_books, get_chapters, get_subsections,
     get_exercises, get_videos,featured_subjects,subjects_by_grade,
-    chapters_by_subject, subsections_by_chapter
+    chapters_by_subject, subsections_by_chapter,
+    get_chapter_by_id, get_subsection_by_id, videos_by_subsection
 )
 
 urlpatterns = [
@@ -16,6 +17,9 @@ urlpatterns = [
     path('videos/', get_videos, name='get-videos'),
     path('featured-subjects/', featured_subjects, name='featured-subjects'),
     path('subjects/<int:subject_id>/chapters/', chapters_by_subject, name='chapters-by-subject'),
-    path('chapters/<int:chapter_id>', subsections_by_chapter, name='subsections-by-chapter'),
+    path('chapters/<int:chapter_id>/subsections', subsections_by_chapter, name='subsections-by-chapter'),
+    path('chapters/<int:chapter_id>/', get_chapter_by_id, name='get-chapter-by-id'),
+    path('subsections/<int:subsection_id>/', get_subsection_by_id, name='get-subsection-by-id'),
+    path('subsections/<int:subsection_id>/videos/', videos_by_subsection, name='videos-by-subsection'),
 
 ]
