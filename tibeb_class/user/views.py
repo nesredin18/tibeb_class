@@ -8,12 +8,14 @@ from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from .models import ParentChild, SubsectionProgress, User_Grade,UserSubscription
-from contents.models import Subject, Subsection
+from .models import BookProgress, ExerciseProgress, ParentChild, User_Grade,UserSubscription, VideoProgress,BookProgress
+from contents.models import Book, Exercise, Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
 from django.utils.timezone import make_aware
 from datetime import datetime
+from django.db.models import Q
+
 
 
 User = get_user_model()
@@ -116,21 +118,22 @@ def add_child_account(request):
             return Response({'error': 'Child data is required.'}, status=400)
 
         child_data['role'] = 'student'  # enforce role
-    grade_ids = child_data.getlist('grades') if hasattr(child_data, 'getlist') else child_data.get('grades', [])
-    if isinstance(grade_ids, str):  
-        grade_ids = [grade_ids]
-    if grade_ids:
-        for grade_id in grade_ids:
-            if not Grade.objects.filter(id=grade_id).exists():
-                return Response({'error': f'Invalid grade ID: {grade_id}'}, status=status.HTTP_400_BAD_REQUEST)
-        serializer = UserSerializer(data=child_data)
-        if serializer.is_valid():
-            child_user = serializer.save()
-            ParentChild.objects.create(parent=parent, child=child_user, status='active')
-            grades = child_user.grades.all()
-            for i, grade in enumerate(grades):
-                User_Grade.objects.create(user=child_user, grade=grade)            
-            return Response({'message': 'Child account created and linked successfully.'}, status=201)
+        child_data['username'] = child_data.get('email')
+        grade_ids = child_data.getlist('grades') if hasattr(child_data, 'getlist') else child_data.get('grades', [])
+        if isinstance(grade_ids, str):  
+            grade_ids = [grade_ids]
+        if grade_ids:
+            for grade_id in grade_ids:
+                if not Grade.objects.filter(id=grade_id).exists():
+                    return Response({'error': f'Invalid grade ID: {grade_id}'}, status=status.HTTP_400_BAD_REQUEST)
+            serializer = UserSerializer(data=child_data)
+            if serializer.is_valid():
+                child_user = serializer.save()
+                ParentChild.objects.create(parent=parent, child=child_user, status='active')
+                grades = child_user.grades.all()
+                for i, grade in enumerate(grades):
+                    User_Grade.objects.create(user=child_user, grade=grade)            
+                return Response({'message': 'Child account created and linked successfully.'}, status=201)
         return Response(serializer.errors, status=400)
 
     # ✅ Case 2: Link existing student
@@ -141,11 +144,17 @@ def add_child_account(request):
 
         try:
             child_user = User.objects.get(username=username, role='student')
-            # Prevent duplicate
+
             relation, created = ParentChild.objects.get_or_create(parent=parent, child=child_user)
 
             if not created:
-                return Response({'message': f'Relation already exists with status: {relation.status}'}, status=200)
+                # Relation already exists
+                if relation.status in ['active', 'pending']:
+                    return Response({'message': f'Relation already exists with status: {relation.status}'}, status=200)
+                else:
+                    relation.status = 'pending'
+                    relation.save()
+                    return Response({'message': 'Child link request sent (pending approval).'}, status=200)
 
             # If new relation, set to pending
             relation.status = 'pending'
@@ -157,6 +166,7 @@ def add_child_account(request):
 
     return Response({'error': 'Invalid child_type. Use "new" or "existing".'}, status=400)
 
+
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -164,11 +174,11 @@ def respond_to_parent_request(request):
     if request.user.role != 'student':
         return Response({'error': 'Only students can respond to requests.'}, status=403)
 
-    parent_id = request.data.get('parent_id')
+    relation_id = request.data.get('relation_id')
     decision = request.data.get('decision')  # 'accept' or 'reject'
 
     try:
-        relation = ParentChild.objects.get(parent_id=parent_id, child=request.user)
+        relation = ParentChild.objects.get(id=relation_id, child=request.user)
         if decision == 'accept':
             relation.status = 'active'
         elif decision == 'reject':
@@ -181,7 +191,45 @@ def respond_to_parent_request(request):
 
     except ParentChild.DoesNotExist:
         return Response({'error': 'No such request found.'}, status=404)
-    
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def cancel_child_request(request):
+    if request.user.role != 'parent':
+        return Response({'error': 'Only parents can cancel child requests.'}, status=403)
+
+    relation_id = request.data.get('relation_id')
+    if not relation_id:
+        return Response({'error': 'Relation ID is required.'}, status=400)
+
+    try:
+        relation = ParentChild.objects.get(id=relation_id, parent=request.user)
+        relation.status = 'canceled'
+        relation.save()
+        return Response({'message': 'Child request canceled successfully.'}, status=200)
+
+    except ParentChild.DoesNotExist:
+        return Response({'error': 'No such request found.'}, status=404)
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def unlink_child(request):
+    if request.user.role != 'parent':
+        return Response({'error': 'Only parents can cancel unlink child.'}, status=403)
+
+    relation_id = request.data.get('relation_id')
+    if not relation_id:
+        return Response({'error': 'Relation ID is required.'}, status=400)
+
+    try:
+        relation = ParentChild.objects.get(id=relation_id, parent=request.user)
+        relation.status = 'unlinked'
+        relation.save()
+        return Response({'message': 'Child unlinked successfully.'}, status=200)
+
+    except ParentChild.DoesNotExist:
+        return Response({'error': 'No such request found.'}, status=404)
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -213,6 +261,50 @@ def get_pending_requests(request):
             'relation_id': r.id,
             'parent_id': r.parent.id,
             'parent_username': r.parent.username,
+            'parent_name':r.parent.first_name + " "+ r.parent.last_name,
+
+            'status': r.status
+        }
+        for r in pending_requests
+    ]
+    return Response(result, status=200)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def get_parent_childs(request):
+    if request.user.role != 'parent':
+        return Response({'error': 'Only parents can view child requests.'}, status=403)
+
+    pending_requests = request.user.children.filter(status='active')
+
+    result = [
+        {
+            'relation_id': r.id,
+            'child_id': r.child.id,
+            'child_email': r.child.username,
+            'child_name':r.child.first_name + " " + r.child.last_name,
+            'child_grade': r.child.grades.all().values_list('name', flat=True),
+            'status': r.status
+        }
+        for r in pending_requests
+    ]
+    return Response(result, status=200)
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def get_child_requests(request):
+    if request.user.role != 'parent':
+        return Response({'error': 'Only parents can view child requests.'}, status=403)
+
+    pending_requests = request.user.children.filter(status='pending')
+
+    result = [
+        {
+            'relation_id': r.id,
+            'child_id': r.child.id,
+            'child_email': r.child.username,
+            'child_name':r.child.first_name + " " + r.child.last_name,
+            'child_grade': r.child.grades.all().values_list('name', flat=True),
             'status': r.status
         }
         for r in pending_requests
@@ -233,16 +325,13 @@ def get_accepted_requests(request):
             'relation_id': r.id,
             'parent_id': r.parent.id,
             'parent_username': r.parent.username,
+            'parent_name':r.parent.first_name + " "+ r.parent.last_name,
             'status': r.status
         }
         for r in accepted_requests
     ]
     return Response(result, status=200)
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.authentication import TokenAuthentication
-from django.shortcuts import get_object_or_404
+
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
@@ -277,26 +366,100 @@ def update_progress(request):
         'percentage_completed': percentage
     }, status=200)
 
+# Adjust to your actual app name
 
-@api_view(['GET'])
+@api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
-def get_progress(request):
+def track_book_progress(request):
     user = request.user
-    progress_qs = SubsectionProgress.objects.filter(user=user)
+    book_id = request.data.get('book_id')
+    read_pages = request.data.get('read_pages')
 
-    result = [
-        {
-            'id': p.id,
-            'video_id': p.video.id if p.video else None,
-            'watched_seconds': p.watched_seconds,
-            'completed_percentage': p.completed_percentage,
-            'last_watched_at': p.last_watched_at
-        }
-        for p in progress_qs
-    ]
+    if not book_id or read_pages is None:
+        return Response({'error': 'book_id and read_pages are required.'}, status=400)
 
-    return Response(result, status=200)
+    try:
+        book = Book.objects.get(id=book_id)
+    except Book.DoesNotExist:
+        return Response({'error': 'Book not found.'}, status=404)
+
+    try:
+        read_pages = int(read_pages)
+    except ValueError:
+        return Response({'error': 'read_pages must be an integer.'}, status=400)
+
+    # Calculate completed_percentage
+    if book.total_pages:
+        completed_percentage = min((read_pages / book.total_pages) * 100, 100)
+    else:
+        completed_percentage = 0.0
+
+    # Create or update progress
+# Create or update progress
+    progress, created = BookProgress.objects.get_or_create(user=user, book=book)
+
+# Only update if this is not a new record AND the new read_pages is greater
+    if not created and progress.read_pages >= read_pages:
+        return Response({'message': 'Progress not updated because read_pages is less than or equal to existing value.'}, status=200)
+
+    progress.read_pages = read_pages
+    progress.completed_percentage = completed_percentage
+    progress.save()
+
+    return Response({
+        'message': 'Book progress tracked successfully.',
+        'book_id': str(book.id),
+        'read_pages': read_pages,
+        'completed_percentage': round(completed_percentage, 2),
+        'last_read_at': progress.last_read_at
+    }, status=status.HTTP_200_OK)
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def track_video_progress(request):
+    user = request.user
+    video_id = request.data.get('video_id')
+    watched_seconds = request.data.get('watched_seconds')
+
+    if not video_id or watched_seconds is None:
+        return Response({'error': 'video_id and watched_seconds are required.'}, status=400)
+
+    try:
+        video = Video.objects.get(id=video_id)
+    except Video.DoesNotExist:
+        return Response({'error': 'Video not found.'}, status=404)
+
+    try:
+        watched_seconds = int(watched_seconds)
+    except ValueError:
+        return Response({'error': 'watched_seconds must be an integer.'}, status=400)
+
+    # Calculate completed percentage
+    if video.duration and video.duration.total_seconds() > 0:
+        completed_percentage = min((watched_seconds / video.duration.total_seconds()) * 100, 100)
+    else:
+        completed_percentage = 0.0
+
+    # Create or update progress
+    progress, created = VideoProgress.objects.get_or_create(user=user, video=video)
+
+    # Only update if this is not a new record AND watched_seconds is greater
+    if not created and progress.watched_seconds >= watched_seconds:
+        return Response({'message': 'Progress not updated because watched_seconds is less than or equal to existing value.'}, status=200)
+
+    progress.watched_seconds = watched_seconds
+    progress.completed_percentage = completed_percentage
+    progress.save()
+
+    return Response({
+        'message': 'Video progress tracked successfully.',
+        'video_id': str(video.id),
+        'watched_seconds': watched_seconds,
+        'completed_percentage': round(completed_percentage, 2),
+        'last_watched_at': progress.last_watched_at
+    }, status=status.HTTP_200_OK)
+
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -395,44 +558,94 @@ def aggregated_progress_per_grade(request):
     result = []
 
     for grade in grades:
-        videos = Video.objects.filter(subsection__chapter__subject__grade=grade)
+        # ✅ Get related subjects, chapters, subsections
+        subjects = Subject.objects.filter(grade=grade)
+        chapters = Chapter.objects.filter(subject__in=subjects)
+        subsections = Subsection.objects.filter(chapter__in=chapters)
+
+        # ✅ Videos
+        videos = Video.objects.filter(
+            type='class'
+        ).filter(
+            Q(grade=grade) |
+            Q(subject__in=subjects) |
+            Q(chapter__in=chapters) |
+            Q(subsection__in=subsections)
+        )
+
+        # ✅ Books
+        books = Book.objects.filter(
+            type='class'
+        ).filter(
+            Q(grade=grade) |
+            Q(subject__in=subjects) |
+            Q(chapter__in=chapters) |
+            Q(subsection__in=subsections)
+        )
+
+        # ✅ Exercises (M2M)
+        exercises = Exercise.objects.filter(
+            type='class'
+        ).filter(
+            Q(grades=grade) |
+            Q(subject__in=subjects) |
+            Q(chapter__in=chapters) |
+            Q(subsection__in=subsections)
+        ).distinct()
+
+        # ✅ IDs
         video_ids = list(videos.values_list('id', flat=True))
+        book_ids = list(books.values_list('id', flat=True))
+        exercise_ids = list(exercises.values_list('id', flat=True))
 
-        progresses = SubsectionProgress.objects.filter(user=user, video_id__in=video_ids)
-        progress_map = {p.video_id: p.completed_percentage for p in progresses}
+        # ✅ Progress records
+        video_progress = VideoProgress.objects.filter(user=user, video_id__in=video_ids)
+        book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
+        exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
-        total_percentage = sum(progress_map.get(video_id, 0) for video_id in video_ids)
-        total_videos = len(video_ids)
-        watched_videos = len(progresses)
+        # ✅ Completed percentages
+        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
+                          list(book_progress.values_list('completed_percentage', flat=True)) + \
+                          list(exercise_progress.values_list('completed_percentage', flat=True))
 
-        # Get the latest progress date for sorting
-        latest_watch = progresses.order_by('-last_watched_at').first()
-        last_watched_at = latest_watch.last_watched_at if latest_watch else None
+        total_content = len(video_ids) + len(book_ids) + len(exercise_ids)
+        completed_content = len(video_progress) + len(book_progress) + len(exercise_progress)
+        average_percentage = round(sum(all_percentages) / total_content, 2) if total_content > 0 else 0.0
 
-        average_percentage = round(total_percentage / total_videos, 2) if total_videos > 0 else 0.0
+        # ✅ Most recent activity
+        latest_video = video_progress.order_by('-last_watched_at').first()
+        latest_book = book_progress.order_by('-last_read_at').first()
+        latest_exercise = exercise_progress.order_by('-last_done_at').first()
+
+        last_dates = [
+            getattr(latest_video, 'last_watched_at', None),
+            getattr(latest_book, 'last_read_at', None),
+            getattr(latest_exercise, 'last_done_at', None)
+        ]
+        last_watched_at = max([d for d in last_dates if d is not None], default=None)
 
         result.append({
             'grade_id': grade.id,
             'grade_name': grade.name,
-            'video_count': total_videos,
-            'videos_with_progress': watched_videos,
+            'total_content': total_content,
+            'contents_with_progress': completed_content,
             'average_percentage_completed': average_percentage,
             'last_watched_at': last_watched_at
         })
 
-    # Sort by last_watched_at (most recent first), None values last
-        min_datetime = timezone.make_aware(datetime.min)
-
-        sorted_result = sorted(
+    # ✅ Sort result by most recent progress
+    min_datetime = timezone.make_aware(datetime.min)
+    sorted_result = sorted(
         result,
         key=lambda x: x['last_watched_at'] or min_datetime,
         reverse=True
-        )
+    )
 
     return Response({
         'level': 'grade',
         'grades_progress': sorted_result
     }, status=200)
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -451,29 +664,60 @@ def aggregated_progress_subject_level(request):
         parent_id = int(parent_id)
     except ValueError:
         return Response({'error': 'ID must be an integer.'}, status=400)
+    user_grades = User_Grade.objects.filter(user=user, is_active=True).select_related('grade')
+    grade_ids = [ug.grade.id for ug in user_grades]
+    if parent_id not in grade_ids:
+        return Response({'class not startted'}, status=200)
 
     subjects = Subject.objects.filter(grade_id=parent_id)
-
     result = []
 
     for subject in subjects:
-        videos = Video.objects.filter(subsection__chapter__subject=subject)
-        video_ids = list(videos.values_list('id', flat=True))
+        # ✅ Directly under subject
+        direct_videos = Video.objects.filter(subject=subject, type='class')
+        direct_books = Book.objects.filter(subject=subject, type='class')
+        direct_exercises = Exercise.objects.filter(subject=subject, type='class')
 
-        progresses = SubsectionProgress.objects.filter(user=user, video_id__in=video_ids)
-        progress_map = {p.video_id: p.completed_percentage for p in progresses}
+        # ✅ Under chapters
+        chapters = Chapter.objects.filter(subject=subject)
+        chapter_videos = Video.objects.filter(chapter__in=chapters, type='class')
+        chapter_books = Book.objects.filter(chapter__in=chapters, type='class')
+        chapter_exercises = Exercise.objects.filter(chapter__in=chapters, type='class')
 
-        total_percentage = sum(progress_map.get(video_id, 0) for video_id in video_ids)
-        total_videos = len(video_ids)
-        watched_videos = len(progresses)
+        # ✅ Under subsections of chapters
+        subsections = Subsection.objects.filter(chapter__in=chapters)
+        subsection_videos = Video.objects.filter(subsection__in=subsections, type='class')
+        subsection_books = Book.objects.filter(subsection__in=subsections, type='class')
+        subsection_exercises = Exercise.objects.filter(subsection__in=subsections, type='class')
 
-        average_percentage = round(total_percentage / total_videos, 2) if total_videos > 0 else 0.0
+        # ✅ Combine all content types
+        all_videos = direct_videos | chapter_videos | subsection_videos
+        all_books = direct_books | chapter_books | subsection_books
+        all_exercises = direct_exercises | chapter_exercises | subsection_exercises
+
+        video_ids = list(all_videos.values_list('id', flat=True))
+        book_ids = list(all_books.values_list('id', flat=True))
+        exercise_ids = list(all_exercises.values_list('id', flat=True))
+
+        # ✅ Get user progress
+        video_progress = VideoProgress.objects.filter(user=user, video_id__in=video_ids)
+        book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
+        exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
+
+        # ✅ Combine completed percentages
+        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
+                          list(book_progress.values_list('completed_percentage', flat=True)) + \
+                          list(exercise_progress.values_list('completed_percentage', flat=True))
+
+        total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
+        completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
+        average_percentage = round(sum(all_percentages) / total_contents, 2) if total_contents else 0.0
 
         result.append({
             'subject_id': subject.id,
             'subject_name': subject.name,
-            'video_count': total_videos,
-            'videos_with_progress': watched_videos,
+            'total_content': total_contents,
+            'contents_with_progress': completed_contents,
             'average_percentage_completed': average_percentage
         })
 
@@ -482,6 +726,7 @@ def aggregated_progress_subject_level(request):
         'level': 'subject',
         'subjects_progress': result
     }, status=200)
+
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
@@ -502,29 +747,64 @@ def aggregated_progress_chapter_level(request):
     except ValueError:
         return Response({'error': 'ID must be an integer.'}, status=400)
 
-    chapters = Chapter.objects.filter(subject_id=parent_id).prefetch_related('subsections__videos')
+    chapters = Chapter.objects.filter(subject_id=parent_id)
+
+    if not chapters.exists():
+        return Response({'error': 'No chapters found for this subject.'}, status=404)
+
+    # Assuming all chapters under the subject belong to the same grade, we can get the first
+    grade_id = chapters.first().subject.grade.id
+
+    user_grades = User_Grade.objects.filter(user=user, is_active=True).select_related('grade')
+    grade_ids = [ug.grade.id for ug in user_grades]
+
+    if grade_id not in grade_ids:
+        return Response({'error': 'Class not started.'}, status=200)
+
 
     result = []
 
     for chapter in chapters:
-        videos = Video.objects.filter(subsection__chapter=chapter)
-        all_video_ids = list(videos.values_list('id', flat=True))
+        # ✅ Fetch content directly under the chapter (type='class')
+        direct_videos = Video.objects.filter(chapter=chapter, type='class')
+        direct_books = Book.objects.filter(chapter=chapter, type='class')
+        direct_exercises = Exercise.objects.filter(chapter=chapter, type='class')
 
-        # Get progress records for the user's videos in this chapter
-        progresses = SubsectionProgress.objects.filter(user=user, video_id__in=all_video_ids)
-        progress_map = {p.video_id: p.completed_percentage for p in progresses}
+        # ✅ Fetch content from subsections under this chapter
+        subsections = Subsection.objects.filter(chapter=chapter)
+        subsection_videos = Video.objects.filter(subsection__in=subsections, type='class')
+        subsection_books = Book.objects.filter(subsection__in=subsections, type='class')
+        subsection_exercises = Exercise.objects.filter(subsection__in=subsections, type='class')
 
-        # Sum up progress for all videos, including 0 for unwatched
-        total_percentage = sum(progress_map.get(video_id, 0) for video_id in all_video_ids)
-        video_count = len(all_video_ids)
+        # ✅ Combine content
+        all_videos = direct_videos | subsection_videos
+        all_books = direct_books | subsection_books
+        all_exercises = direct_exercises | subsection_exercises
 
-        average_percentage = round(total_percentage / video_count, 2) if video_count > 0 else 0.0
+        # ✅ Get IDs
+        video_ids = list(all_videos.values_list('id', flat=True))
+        book_ids = list(all_books.values_list('id', flat=True))
+        exercise_ids = list(all_exercises.values_list('id', flat=True))
+
+        # ✅ Get Progress
+        video_progress = VideoProgress.objects.filter(user=user, video_id__in=video_ids)
+        book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
+        exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
+
+        # ✅ Combine completed_percentage values
+        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
+                          list(book_progress.values_list('completed_percentage', flat=True)) + \
+                          list(exercise_progress.values_list('completed_percentage', flat=True))
+
+        total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
+        completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
+        average_percentage = round(sum(all_percentages) / total_contents, 2) if total_contents > 0 else 0.0
 
         result.append({
             'chapter_id': chapter.id,
             'chapter_title': chapter.title,
-            'video_count': video_count,
-            'videos_with_progress': len(progresses),
+            'total_content': total_contents,
+            'contents_with_progress': completed_contents,
             'average_percentage_completed': average_percentage
         })
 
@@ -533,6 +813,7 @@ def aggregated_progress_chapter_level(request):
         'level': 'chapter',
         'chapters_progress': result
     }, status=200)
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -553,27 +834,36 @@ def aggregated_progress_subsection_level(request):
         return Response({'error': 'ID must be an integer.'}, status=400)
 
     subsections = Subsection.objects.filter(chapter_id=parent_id)
-
     result = []
 
     for subsection in subsections:
-        videos = Video.objects.filter(subsection=subsection)
+        videos = Video.objects.filter(subsection=subsection, type='class')
+        books = Book.objects.filter(subsection=subsection, type='class')
+        exercises = Exercise.objects.filter(subsection=subsection, type='class')
+        # Get IDs
         video_ids = list(videos.values_list('id', flat=True))
+        book_ids = list(books.values_list('id', flat=True))
+        exercise_ids = list(exercises.values_list('id', flat=True))
 
-        progresses = SubsectionProgress.objects.filter(user=user, video_id__in=video_ids)
-        progress_map = {p.video_id: p.completed_percentage for p in progresses}
+        # Progress data
+        video_progress = VideoProgress.objects.filter(user=user, video_id__in=video_ids)
+        book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
+        exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
-        total_percentage = sum(progress_map.get(video_id, 0) for video_id in video_ids)
-        total_videos = len(video_ids)
-        watched_videos = len(progresses)
+        # Combine all percentages
+        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
+                          list(book_progress.values_list('completed_percentage', flat=True)) + \
+                          list(exercise_progress.values_list('completed_percentage', flat=True))
 
-        average_percentage = round(total_percentage / total_videos, 2) if total_videos > 0 else 0.0
+        total_content_count = len(video_ids) + len(book_ids) + len(exercise_ids)
+        completed_content_count = len(video_progress) + len(book_progress) + len(exercise_progress)
+        average_percentage = round(sum(all_percentages) / total_content_count, 2) if total_content_count else 0.0
 
         result.append({
             'subsection_id': subsection.id,
             'subsection_title': subsection.title,
-            'video_count': total_videos,
-            'videos_with_progress': watched_videos,
+            'total_content': total_content_count,
+            'contents_with_progress': completed_content_count,
             'average_percentage_completed': average_percentage
         })
 
@@ -582,39 +872,104 @@ def aggregated_progress_subsection_level(request):
         'level': 'subsection',
         'subsections_progress': result
     }, status=200)
+
+
+
+
+
+
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
-def subsection_progress_summary(request):
+def get_user_progress(request, content_type, content_id):
     user = request.user
-    subsection_id = request.query_params.get('subsection_id')
 
-    if not subsection_id:
-        return Response({'error': 'Missing subsection_id parameter.'}, status=400)
+    def get_grade_from_content(content):
+        if hasattr(content, 'subsection') and content.subsection and content.subsection.chapter and content.subsection.chapter.subject:
+            return content.subsection.chapter.subject.grade
+        elif hasattr(content, 'chapter') and content.chapter and content.chapter.subject:
+            return content.chapter.subject.grade
+        elif hasattr(content, 'subject') and content.subject:
+            return content.subject.grade
+        elif hasattr(content, 'grade') and content.grade:
+            return content.grade
+        return None
 
-    try:
-        subsection = Subsection.objects.get(id=subsection_id)
-    except Subsection.DoesNotExist:
-        return Response({'error': 'Subsection not found.'}, status=404)
+    if content_type == 'video':
+        try:
+            video = Video.objects.get(pk=content_id)
+            progress, created = VideoProgress.objects.get_or_create(user=user, video=video, defaults={
+                'completed_percentage': 0.0,
+                'watched_seconds': 0
+            })
+            if created:
+                grade = get_grade_from_content(video)
+                if grade:
+                    user_grade, ug_created = User_Grade.objects.get_or_create(user=user, grade=grade)
+                    if ug_created or not user_grade.is_active:
+                        user_grade.is_active = True
+                        user_grade.save()
+            return Response({
+                'type': 'video',
+                'completed_percentage': float(progress.completed_percentage),
+                'watched_seconds': progress.watched_seconds,
+                'duration_seconds': video.duration.total_seconds() if video.duration else None,
+                'last_watched_at': progress.last_watched_at
+            })
+        except Video.DoesNotExist:
+            return Response({'error': 'Video not found.'}, status=404)
 
-    videos = Video.objects.filter(subsection=subsection)
-    video_ids = list(videos.values_list('id', flat=True))
+    elif content_type == 'book':
+        try:
+            book = Book.objects.get(pk=content_id)
+            progress, created = BookProgress.objects.get_or_create(user=user, book=book, defaults={
+                'completed_percentage': 0.0,
+                'read_pages': 0
+            })
+            if created:
+                grade = get_grade_from_content(book)
+                if grade:
+                    user_grade, ug_created = User_Grade.objects.get_or_create(user=user, grade=grade)
+                    if ug_created or not user_grade.is_active:
+                        user_grade.is_active = True
+                        user_grade.save()
+            return Response({
+                'type': 'book',
+                'completed_percentage': float(progress.completed_percentage),
+                'read_pages': progress.read_pages,
+                'total_pages': book.total_pages,
+                'last_read_at': progress.last_read_at
+            })
+        except Book.DoesNotExist:
+            return Response({'error': 'Book not found.'}, status=404)
 
-    progresses = SubsectionProgress.objects.filter(user=user, video_id__in=video_ids)
-    progress_map = {p.video_id: p.completed_percentage for p in progresses}
+    elif content_type == 'exercise':
+        try:
+            exercise = Exercise.objects.get(pk=content_id)
+            progress, created = ExerciseProgress.objects.get_or_create(user=user, exercise=exercise, defaults={
+                'completed_percentage': 0.0,
+                'done_exercises': 0
+            })
+            if created:
+                grade = get_grade_from_content(exercise)
+                if grade:
+                    user_grade, ug_created = User_Grade.objects.get_or_create(user=user, grade=grade)
+                    if ug_created or not user_grade.is_active:
+                        user_grade.is_active = True
+                        user_grade.save()
+            return Response({
+                'type': 'exercise',
+                'completed_percentage': float(progress.completed_percentage),
+                'done_exercises': progress.done_exercises,
+                'total_exercises': exercise.total_exercise,
+                'last_done_at': progress.last_done_at
+            })
+        except Exercise.DoesNotExist:
+            return Response({'error': 'Exercise not found.'}, status=404)
 
-    total_percentage = sum(progress_map.get(video_id, 0) for video_id in video_ids)
-    total_videos = len(video_ids)
-    videos_with_progress = len(progresses)
-    average_percentage = round(total_percentage / total_videos, 2) if total_videos > 0 else 0.0
+    return Response({'error': 'Invalid content type. Use "video", "book", or "exercise".'}, status=400)
 
-    return Response({
-        'subsection_id': subsection.id,
-        'subsection_title': subsection.title,
-        'video_count': total_videos,
-        'videos_with_progress': videos_with_progress,
-        'average_percentage_completed': average_percentage
-    }, status=200)
+
 
 
 

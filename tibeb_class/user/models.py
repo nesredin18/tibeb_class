@@ -21,6 +21,8 @@ class ParentChild(models.Model):
         ('active', 'Active'),
         ('pending', 'Pending'),
         ('rejected', 'Rejected'),
+        ('canceled', 'Canceled'),
+        ('unlinked','UnLinked')
     )
     status = models.CharField(max_length=10, choices=Relation_Status, default='pending')
 
@@ -28,8 +30,8 @@ class ParentChild(models.Model):
         unique_together = ('parent', 'child')
 
     
-class SubsectionProgress(models.Model):
-    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='progress')
+class VideoProgress(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='videoprogress')
     video = models.ForeignKey('contents.Video', on_delete=models.CASCADE, null=True, blank=True)
     completed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
     watched_seconds = models.PositiveIntegerField(default=0)
@@ -37,6 +39,24 @@ class SubsectionProgress(models.Model):
 
     class Meta:
         unique_together = ('user','video')
+class BookProgress(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='bookprogress')
+    book = models.ForeignKey('contents.Book', on_delete=models.CASCADE, null=True, blank=True)
+    completed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
+    read_pages = models.PositiveIntegerField(default=0)
+    last_read_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user','book')
+class ExerciseProgress(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='exerciseprogress')
+    exercise = models.ForeignKey('contents.Exercise', on_delete=models.CASCADE, null=True, blank=True)
+    completed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
+    done_exercises = models.PositiveIntegerField(default=0)
+    last_done_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user','exercise')
 
 class UserSubscription(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='subscriptions')

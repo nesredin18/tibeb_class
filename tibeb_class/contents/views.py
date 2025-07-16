@@ -1,3 +1,6 @@
+import os
+from django.conf import settings
+from django.http import FileResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -5,6 +8,15 @@ from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
 from .serializers import GradeSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer,SubjectMiniSerializer
 import random
 
+@api_view(['GET'])
+def get_video_key(request):
+    video_id = request.GET.get('video_id')
+    key_path = os.path.join(settings.MEDIA_ROOT, f"keys/video_{video_id}.key")
+
+    if not os.path.exists(key_path):
+        return Response({'error': 'id not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    return FileResponse(open(key_path, 'rb'), content_type='application/octet-stream')
 @api_view(['GET'])
 def get_grades(request):
     grades = Grade.objects.all()
@@ -116,21 +128,109 @@ def get_videos(request):
     videos = Video.objects.all()
     serializer = VideoSerializer(videos, many=True)
     return Response(serializer.data)
-@api_view(['GET'])
-def videos_by_subsection(request, subsection_id):
-    try:
-        subsection = Subsection.objects.get(id=subsection_id)
-    except Subsection.DoesNotExist:
-        return Response({'error': 'Subsection not found'}, status=status.HTTP_404_NOT_FOUND)
+from rest_framework.decorators import api_view, authentication_classes, permission_classes
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.authentication import TokenAuthentication
+from django.db.models import Q
 
-    videos = Video.objects.filter(subsection=subsection)
-    serializer = VideoSerializer(videos, many=True)
+@api_view(['GET'])
+def get_content_by_type_and_level(request):
+    content_type = request.query_params.get('type')        # 'video', 'book', 'exercise'
+    level = request.query_params.get('level')              # 'grade', 'subject', etc.
+    parent_id = request.query_params.get('id')
+
+    if not content_type or not level or not parent_id:
+        return Response({'error': 'Parameters "type", "level", and "id" are required.'}, status=400)
+
+    try:
+        parent_id = int(parent_id)
+    except ValueError:
+        return Response({'error': '"id" must be an integer.'}, status=400)
+
+    # Import your models
+
+    # Prepare lookups
+    if level == 'grade':
+        grade = Grade.objects.filter(id=parent_id).first()
+        if not grade:
+            return Response({'error': 'Grade not found.'}, status=404)
+        subjects = Subject.objects.filter(grade=grade)
+        chapters = Chapter.objects.filter(subject__in=subjects)
+        subsections = Subsection.objects.filter(chapter__in=chapters)
+        grade_q = Q(grade=grade)
+        subject_q = Q(subject__in=subjects)
+        chapter_q = Q(chapter__in=chapters)
+        subsection_q = Q(subsection__in=subsections)
+
+    elif level == 'subject':
+        subject = Subject.objects.filter(id=parent_id).first()
+        if not subject:
+            return Response({'error': 'Subject not found.'}, status=404)
+        chapters = Chapter.objects.filter(subject=subject)
+        subsections = Subsection.objects.filter(chapter__in=chapters)
+        grade_q = Q()
+        subject_q = Q(subject=subject)
+        chapter_q = Q(chapter__in=chapters)
+        subsection_q = Q(subsection__in=subsections)
+
+    elif level == 'chapter':
+        chapter = Chapter.objects.filter(id=parent_id).first()
+        if not chapter:
+            return Response({'error': 'Chapter not found.'}, status=404)
+        subsections = Subsection.objects.filter(chapter=chapter)
+        grade_q = Q()
+        subject_q = Q()
+        chapter_q = Q(chapter=chapter)
+        subsection_q = Q(subsection__in=subsections)
+
+    elif level == 'subsection':
+        subsection = Subsection.objects.filter(id=parent_id).first()
+        if not subsection:
+            return Response({'error': 'Subsection not found.'}, status=404)
+        grade_q = Q()
+        subject_q = Q()
+        chapter_q = Q()
+        subsection_q = Q(subsection=subsection)
+
+    else:
+        return Response({'error': 'Invalid level. Must be one of: grade, subject, chapter, subsection.'}, status=400)
+
+    # Apply filters
+    if content_type == 'video':
+        contents = Video.objects.filter(
+            type='class'
+        ).filter(
+            grade_q | subject_q | chapter_q | subsection_q
+        )
+        data = VideoSerializer(contents, many=True).data
+
+    elif content_type == 'book':
+        contents = Book.objects.filter(
+            type='class'
+        ).filter(
+            grade_q | subject_q | chapter_q | subsection_q
+        )
+        data = BookSerializer(contents, many=True).data
+
+    elif content_type == 'exercise':
+        contents = Exercise.objects.filter(
+            type='class'
+        ).filter(
+            Q(grades=parent_id) | subject_q | chapter_q | subsection_q
+        ).distinct()
+        data = ExerciseSerializer(contents, many=True).data
+
+    else:
+        return Response({'error': 'Invalid type. Must be one of: video, book, exercise.'}, status=400)
 
     return Response({
-        'subsection_id': subsection.id,
-        'subsection_title': subsection.title,
-        'videos': serializer.data
-    }, status=200)
+        'level': level,
+        'id': parent_id,
+        'type': content_type,
+        'results': data
+    })
+
 @api_view(['GET'])
 def featured_subjects(request):
     grade_id = request.query_params.get('grade_id')
@@ -142,10 +242,9 @@ def featured_subjects(request):
             return Response({'error': 'Grade not found'}, status=status.HTTP_404_NOT_FOUND)
 
         subjects = Subject.objects.filter(grade=grade)[:3]
-        serialized = SubjectMiniSerializer(subjects, many=True)
+        serialized = SubjectSerializer(subjects, many=True)
         return Response({
-            'grade_id': grade.id,
-            'grade_name': grade.name,
+
             'featured_subjects': serialized.data
         }, status=200)
 
@@ -154,10 +253,9 @@ def featured_subjects(request):
     random.shuffle(subjects)
     selected_subjects = subjects[:3]
 
-    serialized = SubjectMiniSerializer(selected_subjects, many=True)
+    serialized = SubjectSerializer(selected_subjects, many=True)
 
     return Response({
-        'grade_id': None,
-        'grade_name': None,
+
         'featured_subjects': serialized.data
     }, status=200)

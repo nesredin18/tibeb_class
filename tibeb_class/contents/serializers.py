@@ -30,9 +30,27 @@ class SubsectionSerializer(serializers.ModelSerializer):
         fields = '__all__'
 
 class ExerciseSerializer(serializers.ModelSerializer):
+    grades = serializers.StringRelatedField(many=True)  # Optional: shows grade names
+    subject = serializers.StringRelatedField()
+    chapter = serializers.StringRelatedField()
+    subsection = serializers.StringRelatedField()
+
     class Meta:
         model = Exercise
-        fields = '__all__'
+        fields = [
+            'id',
+            'title',
+            'description',
+            'type',
+            'ispaid',
+            'grades',
+            'subject',
+            'chapter',
+            'subsection',
+            'is_active',
+            'rank',
+            'total_exercise',
+        ]
 
     class Meta:
         model = Video
