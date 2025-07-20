@@ -1,4 +1,12 @@
 from django.db import models
+from moviepy import VideoFileClip
+from datetime import timedelta
+import os
+from django.core.exceptions import ValidationError
+
+
+
+
 
 class Grade(models.Model):
     name = models.CharField(max_length=50)
@@ -73,8 +81,38 @@ class Book(models.Model):
     total_pages=models.PositiveIntegerField(default=0)
 
 
+    def clean(self):
+        # Count how many hierarchy levels are filled
+        levels = [self.grade, self.subject, self.chapter, self.subsection]
+        filled_levels = [level for level in levels if level is not None]
+
+        if len(filled_levels) > 1:
+            raise ValidationError("Only one of grade, subject, chapter, or subsection should be set.")
+        if self.type == 'class':
+            filters = {
+                'type': 'class',
+                'grade': self.grade,
+                'subject': self.subject,
+                'chapter': self.chapter,
+                'subsection': self.subsection,
+            }
+
+            # Exclude self to allow updates
+            existing = Book.objects.filter(**filters).exclude(pk=self.pk)
+
+            if existing.exists():
+                raise ValidationError("A 'class' type book already exists at this level.")
+
     def __str__(self):
-        return f"{self.name}"
+        if self.subsection:
+            return f"{self.name} - {self.subsection.title} - {self.subsection.chapter.title} - {self.subsection.chapter.subject.name} - {self.subsection.chapter.subject.grade.name}"
+        elif self.chapter:
+            return f"{self.name} - {self.chapter.title} - {self.chapter.subject.name} - {self.chapter.subject.grade.name}"
+        elif self.subject:
+            return f"{self.name} - {self.subject.name} - {self.subject.grade.name}"
+        elif self.grade:
+            return f"{self.name} - {self.grade.name}"
+        return self.name
     
 class Exercise(models.Model):
     Resource_Type = (
@@ -98,21 +136,26 @@ class Exercise(models.Model):
     total_exercise=models.PositiveIntegerField(default=0)
 
 
+    def clean(self):
+        # Count how many hierarchy levels are filled
+        levels = [self.grades, self.subject, self.chapter, self.subsection]
+        filled_levels = [level for level in levels if level is not None]
+
+        if len(filled_levels) > 1:
+            raise ValidationError("Only one of grade, subject, chapter, or subsection should be set.")
+
     def __str__(self):
-        parts = [self.title]
+        if self.subsection:
+            return f"{self.title} - {self.subsection.title} - {self.subsection.chapter.title} - {self.subsection.chapter.subject.name} - {self.subsection.chapter.subject.grade.name}"
+        elif self.chapter:
+            return f"{self.title} - {self.chapter.title} - {self.chapter.subject.name} - {self.chapter.subject.grade.name}"
+        elif self.subject:
+            return f"{self.title} - {self.subject.name} - {self.subject.grade.name}"
+        elif self.grades.exists():
+            grade_names = ", ".join(grade.name for grade in self.grades.all())
+            return f"{self.title} - {grade_names}"
 
-        if self.chapter:
-            parts.append(self.chapter.title)
-
-            if self.chapter.subject:
-                parts.append(self.chapter.subject.name)
-
-                # For grades (ManyToMany)
-                grade_names = [grade.name for grade in self.grades.all()]
-                if grade_names:
-                    parts.append(', '.join(grade_names))
-
-        return " - ".join(parts)
+        return self.title
 
 class Question(models.Model):
     exercises = models.ManyToManyField(Exercise, related_name='questions', blank=True)
@@ -148,8 +191,21 @@ class Video(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
+    def clean(self):
+        # Count how many hierarchy levels are filled
+        levels = [self.grade, self.subject, self.chapter, self.subsection]
+        filled_levels = [level for level in levels if level is not None]
 
-
+        if len(filled_levels) > 1:
+            raise ValidationError("Only one of grade, subject, chapter, or subsection should be set.")
 
     def __str__(self):
-        return f"{self.title} - {self.subsection.title} - {self.subsection.chapter.title} - {self.subsection.chapter.subject.name} - {self.subsection.chapter.subject.grade.name}"
+        if self.subsection:
+            return f"{self.title} - {self.subsection.title} - {self.subsection.chapter.title} - {self.subsection.chapter.subject.name} - {self.subsection.chapter.subject.grade.name}"
+        elif self.chapter:
+            return f"{self.title} - {self.chapter.title} - {self.chapter.subject.name} - {self.chapter.subject.grade.name}"
+        elif self.subject:
+            return f"{self.title} - {self.subject.name} - {self.subject.grade.name}"
+        elif self.grade:
+            return f"{self.title} - {self.grade.name}"
+        return self.title

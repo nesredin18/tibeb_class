@@ -333,38 +333,7 @@ def get_accepted_requests(request):
     return Response(result, status=200)
 
 
-@api_view(['POST'])
-@authentication_classes([TokenAuthentication])
-@permission_classes([IsAuthenticated])
-def update_progress(request):
-    user = request.user
-    video_id = request.data.get('video_id')
 
-    try:
-        video = Video.objects.get(id=video_id) 
-    except  Video.DoesNotExist:
-        return Response({'error': 'video not found'}, status=404)
-
-    progress, created = SubsectionProgress.objects.get_or_create(user=user, video=video)
-
-    watched_seconds = request.data.get('watched_seconds')
-    if watched_seconds is not None:
-        progress.watched_seconds = int(watched_seconds)
-
-    if video and video.duration:
-        video_seconds = video.duration.total_seconds()
-        percentage = round((progress.watched_seconds / video_seconds) * 100, 2)
-        if percentage >= 100:
-            percentage = 100.0
-        progress.completed_percentage = percentage
-    else:
-        percentage = None  # If no video or duration is missing
-    progress.save()
-
-    return Response({
-        'message': 'Progress updated.',
-        'percentage_completed': percentage
-    }, status=200)
 
 # Adjust to your actual app name
 
@@ -731,6 +700,67 @@ def aggregated_progress_subject_level(request):
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
+def aggregated_progress_subjects_under_user_grades(request):
+    user = request.user
+    user_grades = User_Grade.objects.filter(user=user, is_active=True).select_related('grade')
+    grades = [ug.grade for ug in user_grades]
+
+    result = []
+
+    for grade in grades:
+        subjects = Subject.objects.filter(grade=grade)
+        for subject in subjects:
+            # Collect content
+            chapters = Chapter.objects.filter(subject=subject)
+            subsections = Subsection.objects.filter(chapter__in=chapters)
+
+            videos = Video.objects.filter(
+                Q(subject=subject) | Q(chapter__in=chapters) | Q(subsection__in=subsections),
+                type='class'
+            )
+            books = Book.objects.filter(
+                Q(subject=subject) | Q(chapter__in=chapters) | Q(subsection__in=subsections),
+                type='class'
+            )
+            exercises = Exercise.objects.filter(
+                Q(subject=subject) | Q(chapter__in=chapters) | Q(subsection__in=subsections),
+                type='class'
+            )
+
+            video_ids = list(videos.values_list('id', flat=True))
+            book_ids = list(books.values_list('id', flat=True))
+            exercise_ids = list(exercises.values_list('id', flat=True))
+
+            video_progress = VideoProgress.objects.filter(user=user, video_id__in=video_ids)
+            book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
+            exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
+
+            all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
+                              list(book_progress.values_list('completed_percentage', flat=True)) + \
+                              list(exercise_progress.values_list('completed_percentage', flat=True))
+
+            total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
+            completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
+            average_percentage = round(sum(all_percentages) / total_contents, 2) if total_contents else 0.0
+
+            result.append({
+                'grade_id': grade.id,
+                'grade_name': grade.name,
+                'subject_id': subject.id,
+                'subject_name': subject.name,
+                'total_content': total_contents,
+                'contents_with_progress': completed_contents,
+                'average_percentage_completed': average_percentage
+            })
+
+    return Response({
+        'level': 'subject',
+        'subjects_progress': result
+    }, status=200)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
 def aggregated_progress_chapter_level(request):
     user = request.user
     level = request.query_params.get('level')
@@ -813,6 +843,70 @@ def aggregated_progress_chapter_level(request):
         'level': 'chapter',
         'chapters_progress': result
     }, status=200)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def aggregated_progress_chapter_level_for_user(request):
+    user = request.user
+    user_grades = User_Grade.objects.filter(user=user, is_active=True).select_related('grade')
+    grades = [ug.grade for ug in user_grades]
+
+    result = []
+
+    for grade in grades:
+        subjects = grade.subjects.all()  # Assuming reverse relation exists
+        for subject in subjects:
+            chapters = Chapter.objects.filter(subject=subject)
+            for chapter in chapters:
+                subsections = Subsection.objects.filter(chapter=chapter)
+
+                videos = Video.objects.filter(
+                    Q(chapter=chapter) | Q(subsection__in=subsections),
+                    type='class'
+                )
+                books = Book.objects.filter(
+                    Q(chapter=chapter) | Q(subsection__in=subsections),
+                    type='class'
+                )
+                exercises = Exercise.objects.filter(
+                    Q(chapter=chapter) | Q(subsection__in=subsections),
+                    type='class'
+                )
+
+                video_ids = list(videos.values_list('id', flat=True))
+                book_ids = list(books.values_list('id', flat=True))
+                exercise_ids = list(exercises.values_list('id', flat=True))
+
+                video_progress = VideoProgress.objects.filter(user=user, video_id__in=video_ids)
+                book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
+                exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
+
+                all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
+                                  list(book_progress.values_list('completed_percentage', flat=True)) + \
+                                  list(exercise_progress.values_list('completed_percentage', flat=True))
+
+                total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
+                completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
+                average_percentage = round(sum(all_percentages) / total_contents, 2) if total_contents > 0 else 0.0
+
+                result.append({
+                    'grade_id': grade.id,
+                    'grade_name': grade.name,
+                    'subject_id': subject.id,
+                    'subject_name': subject.name,
+                    'chapter_id': chapter.id,
+                    'chapter_title': chapter.title,
+                    'total_content': total_contents,
+                    'contents_with_progress': completed_contents,
+                    'average_percentage_completed': average_percentage
+                })
+
+    return Response({
+        'level': 'chapter',
+        'chapters_progress': result
+    }, status=200)
+
 
 @api_view(['GET'])
 @authentication_classes([TokenAuthentication])
