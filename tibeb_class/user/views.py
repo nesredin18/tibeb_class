@@ -15,6 +15,13 @@ from contents.models import Grade,Video, Chapter
 from django.utils.timezone import make_aware
 from datetime import datetime
 from django.db.models import Q
+from django.contrib.auth.tokens import default_token_generator
+from django.utils.http import urlsafe_base64_decode
+from django.utils.http import urlsafe_base64_encode
+from django.utils.encoding import force_bytes
+from django.core.mail import send_mail
+from django.conf import settings
+
 
 
 
@@ -55,6 +62,112 @@ def signup(request):
 
     return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
+@api_view(['GET'])
+def verify_email(request, uidb64, token):
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = User.objects.get(pk=uid)
+    except (User.DoesNotExist, ValueError, TypeError):
+        return Response({'error': 'Invalid verification link.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_token_generator.check_token(user, token):
+        if not user.is_verified:
+            user.is_verified = True
+            user.save(update_fields=["is_verified"])
+        return Response({'message': 'Email successfully verified.'}, status=status.HTTP_200_OK)
+    else:
+        return Response({'error': 'Verification link is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def resend_verification_email(request):
+    user = request.user
+
+    if user.is_verified:  # Assuming you have a boolean field `is_verified` on your CustomUser model
+        return Response({'message': 'User is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    domain = settings.FRONTEND_URL  # e.g., from settings.FRONTEND_URL
+
+    verification_link = f"{domain}/verify-email/{uid}/{token}/"
+
+    # Optional: you can import and use the `render_verification_email_html` you created before
+    email_body = f"Click the link to verify your email: {verification_link}"
+
+    send_mail(
+        subject='Verify Your Email',
+        message=email_body,
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[user.email],
+    )
+
+    return Response({'message': 'Verification email resent.'}, status=status.HTTP_200_OK)
+@api_view(['POST'])
+def send_password_reset_email(request):
+    email = request.data.get('email')
+    if not email:
+        return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        user = User.objects.get(email=email)
+        uid = urlsafe_base64_encode(force_bytes(user.pk))
+        token = default_token_generator.make_token(user)
+        domain = "your-frontend.com"  # Replace with your actual domain
+
+        reset_link = f"https://{domain}/reset-password/{uid}/{token}/"
+
+        send_mail(
+            subject="Password Reset Request",
+            message=f"Click the link to reset your password: {reset_link}",
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            recipient_list=[user.email],
+        )
+        return Response({'message': 'Password reset link sent successfully.'}, status=status.HTTP_200_OK)
+    except User.DoesNotExist:
+        return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+
+@api_view(['POST'])
+def reset_password(request, uidb64, token):
+    password = request.data.get('password')
+    if not password:
+        return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        uid = urlsafe_base64_decode(uidb64).decode()
+        user = User.objects.get(pk=uid)
+    except (User.DoesNotExist, ValueError, TypeError):
+        return Response({'error': 'Invalid link.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if default_token_generator.check_token(user, token):
+        user.set_password(password)
+        user.save()
+        return Response({'message': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
+    else:
+        return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
+    
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def change_password(request):
+    user = request.user
+    old_password = request.data.get('old_password')
+    new_password = request.data.get('new_password')
+    confirm_password = request.data.get('confirm_password')
+
+    if not all([old_password, new_password, confirm_password]):
+        return Response({'error': 'All fields are required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if new_password != confirm_password:
+        return Response({'error': 'New password and confirm password do not match.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if not user.check_password(old_password):
+        return Response({'error': 'Old password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    user.set_password(new_password)
+    user.save()
+    return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)
 @api_view(['PUT', 'PATCH'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])

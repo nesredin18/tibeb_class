@@ -11,6 +11,8 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
     grades = models.ManyToManyField('contents.Grade', related_name='users', blank=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
+    is_verified = models.BooleanField(default=False)  # Add this line
+
 
     def __str__(self):
         return self.username

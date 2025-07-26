@@ -1,14 +1,20 @@
 from django.urls import path
-from .views import signup, login, test
+from .views import change_password, reset_password, send_password_reset_email, signup, login, test, verify_email
 from .views import get_user_info, get_pending_requests, get_accepted_requests
 from .views import create_user_subscription, get_active_subscription,aggregated_progress_chapter_level
 from .views import start_grade,user_grade,aggregated_progress_per_grade,aggregated_progress_chapter_level,aggregated_progress_subject_level,aggregated_progress_subsection_level
 from .views import update_user,get_user_info, add_child_account, respond_to_parent_request
 from .views import get_parent_childs,get_child_requests,cancel_child_request,unlink_child
-from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user
+from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_email
 
 urlpatterns = [
     path('signup/', signup, name='signup'),
+    path('verify-email/<uidb64>/<token>/', verify_email, name='verify-email'),
+    path('password-reset/', send_password_reset_email, name='password-reset-email'),
+    path('reset-password/<uidb64>/<token>/', reset_password, name='reset-password'),
+    path('change-password/', change_password, name='change-password'),
+    path('resend-varification/', resend_verification_email, name='resend-varification'),
+
     path('update/', update_user, name='update-user'),
     path('login/', login, name='login'),
     path('',get_user_info, name='user-info'),
@@ -34,6 +40,5 @@ urlpatterns = [
     path('student/aggregated-progress/summery-subject-level/', aggregated_progress_subjects_under_user_grades, name='aggregated_progress_subjects_under_user_grades'),
     path('student/aggregated-progress/chapter-level/', aggregated_progress_chapter_level, name='aggregated-progress-chapter-level'),
     path('student/aggregated-progress/summery-chapter-level/', aggregated_progress_chapter_level_for_user, name='aggregated_progress_chapter_level_for_user'),
-
     path('student/aggregated-progress/subsection-level/', aggregated_progress_subsection_level, name='aggregated-progress-subsection-level'),
 ]
