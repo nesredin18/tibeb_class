@@ -10,7 +10,7 @@ from .views import get_user_progress,track_book_progress,track_video_progress,ag
 urlpatterns = [
     path('signup/', signup, name='signup'),
     path('verify-email/<uidb64>/<token>/', verify_email, name='verify-email'),
-    path('password-reset/', send_password_reset_email, name='password-reset-email'),
+    path('send-password-reset/', send_password_reset_email, name='password-reset-email'),
     path('reset-password/<uidb64>/<token>/', reset_password, name='reset-password'),
     path('change-password/', change_password, name='change-password'),
     path('resend-varification/', resend_verification_email, name='resend-varification'),

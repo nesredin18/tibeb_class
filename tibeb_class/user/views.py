@@ -114,9 +114,9 @@ def send_password_reset_email(request):
         user = User.objects.get(email=email)
         uid = urlsafe_base64_encode(force_bytes(user.pk))
         token = default_token_generator.make_token(user)
-        domain = "your-frontend.com"  # Replace with your actual domain
+        domain =settings.FRONTEND_URL  # Replace with your actual domain
 
-        reset_link = f"https://{domain}/reset-password/{uid}/{token}/"
+        reset_link = f"{domain}/reset-password/{uid}/{token}/"
 
         send_mail(
             subject="Password Reset Request",
