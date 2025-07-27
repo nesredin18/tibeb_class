@@ -9,7 +9,7 @@ from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from .models import BookProgress, ExerciseProgress, ParentChild, User_Grade,UserSubscription, VideoProgress,BookProgress
+from .models import BookProgress, CustomUser, ExerciseProgress, ParentChild, User_Grade,UserSubscription, VideoProgress,BookProgress
 from contents.models import Book, Exercise, Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
@@ -622,6 +622,29 @@ def create_user_subscription(request):
 def get_active_subscription(request):
     user = request.user
     today = timezone.now().date()
+    child_id = request.query_params.get('child_id')
+
+    # If child_id is provided, validate parent-child relationship
+    if child_id:
+        try:
+            child_id = int(child_id)
+        except ValueError:
+            return Response({'error': 'Invalid child_id.'}, status=400)
+
+        is_valid_relation = ParentChild.objects.filter(
+            parent=user,
+            child_id=child_id,
+            status='active'
+        ).exists()
+
+        if not is_valid_relation:
+            return Response({'error': 'You are not authorized to access this child\'s data.'}, status=403)
+
+        # If valid, use the child as the target user
+        try:
+            user = CustomUser.objects.get(id=child_id)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'Child user not found.'}, status=404)
 
     active = UserSubscription.objects.filter(user=user, is_active=True, end_date__gte=today).first()
 
@@ -642,6 +665,29 @@ def get_active_subscription(request):
 @permission_classes([IsAuthenticated])
 def user_grade(request):
     user = request.user
+    child_id = request.query_params.get('child_id')
+
+    # If child_id is provided, validate parent-child relationship
+    if child_id:
+        try:
+            child_id = int(child_id)
+        except ValueError:
+            return Response({'error': 'Invalid child_id.'}, status=400)
+
+        is_valid_relation = ParentChild.objects.filter(
+            parent=user,
+            child_id=child_id,
+            status='active'
+        ).exists()
+
+        if not is_valid_relation:
+            return Response({'error': 'You are not authorized to access this child\'s data.'}, status=403)
+
+        # If valid, use the child as the target user
+        try:
+            user = CustomUser.objects.get(id=child_id)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'Child user not found.'}, status=404)
     user_grades = User_Grade.objects.filter(user=user, is_active=True)
     result = []
     for user_grade in user_grades:
@@ -1010,9 +1056,32 @@ def aggregated_progress_chapter_level(request):
 @permission_classes([IsAuthenticated])
 def aggregated_progress_chapter_level_for_user(request):
     user = request.user
+    child_id = request.query_params.get('child_id')
+
+    # If child_id is provided, validate parent-child relationship
+    if child_id:
+        try:
+            child_id = int(child_id)
+        except ValueError:
+            return Response({'error': 'Invalid child_id.'}, status=400)
+
+        is_valid_relation = ParentChild.objects.filter(
+            parent=user,
+            child_id=child_id,
+            status='active'
+        ).exists()
+
+        if not is_valid_relation:
+            return Response({'error': 'You are not authorized to access this child\'s data.'}, status=403)
+
+        # If valid, use the child as the target user
+        try:
+            user = CustomUser.objects.get(id=child_id)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'Child user not found.'}, status=404)
+        
     user_grades = User_Grade.objects.filter(user=user, is_active=True).select_related('grade')
     grades = [ug.grade for ug in user_grades]
-
     result = []
 
     for grade in grades:
