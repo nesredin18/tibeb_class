@@ -5,7 +5,7 @@ from .views import create_user_subscription, get_active_subscription,aggregated_
 from .views import start_grade,user_grade,aggregated_progress_per_grade,aggregated_progress_chapter_level,aggregated_progress_subject_level,aggregated_progress_subsection_level
 from .views import update_user,get_user_info, add_child_account, respond_to_parent_request
 from .views import get_parent_childs,get_child_requests,cancel_child_request,unlink_child
-from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_email
+from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_email,update_email_and_send_verification
 
 urlpatterns = [
     path('signup/', signup, name='signup'),
@@ -14,7 +14,7 @@ urlpatterns = [
     path('reset-password/<uidb64>/<token>/', reset_password, name='reset-password'),
     path('change-password/', change_password, name='change-password'),
     path('resend-varification/', resend_verification_email, name='resend-varification'),
-
+    path('update-email/', update_email_and_send_verification, name='update_email_and_send_verification'),
     path('update/', update_user, name='update-user'),
     path('login/', login, name='login'),
     path('',get_user_info, name='user-info'),

@@ -1,3 +1,4 @@
+from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
 from rest_framework.authentication import SessionAuthentication, TokenAuthentication
@@ -168,6 +169,43 @@ def change_password(request):
     user.set_password(new_password)
     user.save()
     return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def update_email_and_send_verification(request):
+    new_email = request.data.get('email')
+
+    if not new_email:
+        return Response({'error': 'Email is required.'}, status=400)
+
+    user = request.user
+    user.email = new_email
+    user.username=new_email
+    user.is_verified = False
+
+    try:
+        user.save()
+    except IntegrityError as e:
+        if "UNIQUE constraint failed" in str(e):
+            return Response({'error': 'Email already taken.'}, status=400)
+        return Response({'error': 'An unexpected error occurred.'}, status=500)
+
+    # Send new verification email
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+    domain = settings.FRONTEND_URL
+
+    verification_link = f"{domain}/verify-email/{uid}/{token}/"
+
+    send_mail(
+        subject='Verify Your New Email Address',
+        message=f'Click the link to verify your email: {verification_link}',
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        recipient_list=[new_email],
+    )
+
+    return Response({'message': 'Email updated and verification sent.'}, status=200)
 @api_view(['PUT', 'PATCH'])
 @authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
@@ -230,24 +268,34 @@ def add_child_account(request):
         if not child_data:
             return Response({'error': 'Child data is required.'}, status=400)
 
-        child_data['role'] = 'student'  # enforce role
+        child_data['role'] = 'student'
         child_data['username'] = child_data.get('email')
+        
         grade_ids = child_data.getlist('grades') if hasattr(child_data, 'getlist') else child_data.get('grades', [])
-        if isinstance(grade_ids, str):  
+        if isinstance(grade_ids, str):
             grade_ids = [grade_ids]
-        if grade_ids:
+
+        # Validate grade IDs if provided
+        for grade_id in grade_ids:
+            if not Grade.objects.filter(id=grade_id).exists():
+                return Response({'error': f'Invalid grade ID: {grade_id}'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = UserSerializer(data=child_data)
+        if serializer.is_valid():
+            child_user = serializer.save()
+
+            # Create parent-child relation
+            ParentChild.objects.create(parent=parent, child=child_user, status='active')
+
+            # Assign grades if any
             for grade_id in grade_ids:
-                if not Grade.objects.filter(id=grade_id).exists():
-                    return Response({'error': f'Invalid grade ID: {grade_id}'}, status=status.HTTP_400_BAD_REQUEST)
-            serializer = UserSerializer(data=child_data)
-            if serializer.is_valid():
-                child_user = serializer.save()
-                ParentChild.objects.create(parent=parent, child=child_user, status='active')
-                grades = child_user.grades.all()
-                for i, grade in enumerate(grades):
-                    User_Grade.objects.create(user=child_user, grade=grade)            
-                return Response({'message': 'Child account created and linked successfully.'}, status=201)
+                grade = Grade.objects.get(id=grade_id)
+                User_Grade.objects.create(user=child_user, grade=grade)
+
+            return Response({'message': 'Child account created and linked successfully.'}, status=201)
+
         return Response(serializer.errors, status=400)
+
 
     # ✅ Case 2: Link existing student
     elif child_type == 'existing':
@@ -263,7 +311,7 @@ def add_child_account(request):
             if not created:
                 # Relation already exists
                 if relation.status in ['active', 'pending']:
-                    return Response({'message': f'Relation already exists with status: {relation.status}'}, status=200)
+                    return Response({'error': f'Relation already exists with status: {relation.status}'}, status=400)
                 else:
                     relation.status = 'pending'
                     relation.save()
