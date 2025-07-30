@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Video, Grade, Subject, Book, Chapter, Subsection, Exercise
+from .models import Option, Question, Video, Grade, Subject, Book, Chapter, Subsection, Exercise
 
 class VideoSerializer(serializers.ModelSerializer):
     class Meta:
@@ -52,9 +52,22 @@ class ExerciseSerializer(serializers.ModelSerializer):
             'total_exercise',
         ]
 
+class OptionSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Video
-        fields = '__all__'
+        model = Option
+        fields = ['id', 'text']
+
+class QuestionSerializer(serializers.ModelSerializer):
+    options = serializers.SerializerMethodField()
+
+    class Meta:
+        model = Question
+        fields = ['id', 'question_type', 'question', 'options']
+
+    def get_options(self, obj):
+        if obj.question_type == 'choose':
+            return OptionSerializer(obj.options.all(), many=True).data
+        return None
 class SubjectMiniSerializer(serializers.ModelSerializer):
     class Meta:
         model = Subject

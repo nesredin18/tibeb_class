@@ -5,7 +5,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
-from .serializers import GradeSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer,SubjectMiniSerializer
+from .serializers import GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer,SubjectMiniSerializer
 import random
 
 @api_view(['GET'])
@@ -122,6 +122,39 @@ def get_exercises(request):
     exercises = Exercise.objects.all()
     serializer = ExerciseSerializer(exercises, many=True)
     return Response(serializer.data)
+@api_view(['GET'])
+def get_exercises_by_id(request, exercises_id):
+    try:
+        exercises = Exercise.objects.get(id=exercises_id)
+    except Exercise.DoesNotExist:
+        return Response({'error': 'Exercise not found'}, status=status.HTTP_404_NOT_FOUND)
+
+    serializer = ExerciseSerializer(exercises)
+    return Response(serializer.data, status=200)
+
+@api_view(['GET'])
+def get_exercise_question(request, exercise_id):
+    index = int(request.query_params.get('index', 0))  # Get the question index from query param
+
+    try:
+        exercise = Exercise.objects.get(id=exercise_id, is_active=True)
+    except Exercise.DoesNotExist:
+        return Response({"error": "Exercise not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    # Get ordered questions
+    questions = exercise.questions.all().order_by('rank')
+
+    if index < 0 or index >= questions.count():
+        return Response({"error": "Invalid question index"}, status=status.HTTP_400_BAD_REQUEST)
+
+    question = questions[index]
+    serializer = QuestionSerializer(question)
+
+    return Response({
+        "question_index": index,
+        "question_total": questions.count(),
+        "question_data": serializer.data
+    })
 
 @api_view(['GET'])
 def get_videos(request):
@@ -148,81 +181,34 @@ def get_content_by_type_and_level(request):
     except ValueError:
         return Response({'error': '"id" must be an integer.'}, status=400)
 
-    # Import your models
+    if content_type == 'video':
+        model = Video
+        serializer_class = VideoSerializer
+    elif content_type == 'book':
+        model = Book
+        serializer_class = BookSerializer
+    elif content_type == 'exercise':
+        model = Exercise
+        serializer_class = ExerciseSerializer
+    else:
+        return Response({'error': 'Invalid type. Must be one of: video, book, exercise.'}, status=400)
 
-    # Prepare lookups
+    # Direct filter based on the level
     if level == 'grade':
-        grade = Grade.objects.filter(id=parent_id).first()
-        if not grade:
-            return Response({'error': 'Grade not found.'}, status=404)
-        subjects = Subject.objects.filter(grade=grade)
-        chapters = Chapter.objects.filter(subject__in=subjects)
-        subsections = Subsection.objects.filter(chapter__in=chapters)
-        grade_q = Q(grade=grade)
-        subject_q = Q(subject__in=subjects)
-        chapter_q = Q(chapter__in=chapters)
-        subsection_q = Q(subsection__in=subsections)
-
+        contents = model.objects.filter(type='class', grades__id=parent_id)
     elif level == 'subject':
-        subject = Subject.objects.filter(id=parent_id).first()
-        if not subject:
-            return Response({'error': 'Subject not found.'}, status=404)
-        chapters = Chapter.objects.filter(subject=subject)
-        subsections = Subsection.objects.filter(chapter__in=chapters)
-        grade_q = Q()
-        subject_q = Q(subject=subject)
-        chapter_q = Q(chapter__in=chapters)
-        subsection_q = Q(subsection__in=subsections)
-
+        contents = model.objects.filter(type='class', subject__id=parent_id)
     elif level == 'chapter':
-        chapter = Chapter.objects.filter(id=parent_id).first()
-        if not chapter:
-            return Response({'error': 'Chapter not found.'}, status=404)
-        subsections = Subsection.objects.filter(chapter=chapter)
-        grade_q = Q()
-        subject_q = Q()
-        chapter_q = Q(chapter=chapter)
-        subsection_q = Q(subsection__in=subsections)
-
+        contents = model.objects.filter(type='class', chapter__id=parent_id)
     elif level == 'subsection':
-        subsection = Subsection.objects.filter(id=parent_id).first()
-        if not subsection:
-            return Response({'error': 'Subsection not found.'}, status=404)
-        grade_q = Q()
-        subject_q = Q()
-        chapter_q = Q()
-        subsection_q = Q(subsection=subsection)
-
+        contents = model.objects.filter(type='class', subsection__id=parent_id)
     else:
         return Response({'error': 'Invalid level. Must be one of: grade, subject, chapter, subsection.'}, status=400)
 
-    # Apply filters
-    if content_type == 'video':
-        contents = Video.objects.filter(
-            type='class'
-        ).filter(
-            grade_q | subject_q | chapter_q | subsection_q
-        )
-        data = VideoSerializer(contents, many=True).data
+    # Make sure to eliminate duplicates (especially for M2M like grades)
+    contents = contents.distinct()
 
-    elif content_type == 'book':
-        contents = Book.objects.filter(
-            type='class'
-        ).filter(
-            grade_q | subject_q | chapter_q | subsection_q
-        )
-        data = BookSerializer(contents, many=True).data
-
-    elif content_type == 'exercise':
-        contents = Exercise.objects.filter(
-            type='class'
-        ).filter(
-            Q(grades=parent_id) | subject_q | chapter_q | subsection_q
-        ).distinct()
-        data = ExerciseSerializer(contents, many=True).data
-
-    else:
-        return Response({'error': 'Invalid type. Must be one of: video, book, exercise.'}, status=400)
+    data = serializer_class(contents, many=True).data
 
     return Response({
         'level': level,
@@ -230,6 +216,7 @@ def get_content_by_type_and_level(request):
         'type': content_type,
         'results': data
     })
+
 
 @api_view(['GET'])
 def featured_subjects(request):
