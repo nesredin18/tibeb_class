@@ -5,7 +5,9 @@ from datetime import timedelta
 from .models import Video
 import os
 from .models import Book
-import fitz  # PyMuPDF
+import fitz
+from django.db.models.signals import m2m_changed
+from .models import Question
 
 @receiver(post_save, sender=Video)
 def extract_duration(sender, instance, created, **kwargs):
@@ -38,4 +40,21 @@ def extract_pdf_page_count(sender, instance, created, **kwargs):
                     Book.objects.filter(pk=instance.pk).update(total_pages=total_pages)
         except Exception as e:
             print(f"Error extracting PDF pages: {e}")
+
+@receiver(m2m_changed, sender=Question.exercises.through)
+def update_total_exercises(sender, instance, action, reverse, model, pk_set, **kwargs):
+    # If reverse is False, instance is a Question; otherwise, it's an Exercise
+    if action in ["post_add", "post_remove", "post_clear"]:
+        if reverse:
+            # instance is Exercise
+            exercise = instance
+            total = exercise.questions.count()
+            exercise.total_exercise = total
+            exercise.save(update_fields=["total_exercise"])
+        else:
+            # instance is Question, update all related exercises
+            for exercise in instance.exercises.all():
+                total = exercise.questions.count()
+                exercise.total_exercise = total
+                exercise.save(update_fields=["total_exercise"])
 

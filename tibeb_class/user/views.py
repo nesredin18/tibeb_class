@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -9,8 +10,8 @@ from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from .models import BookProgress, CustomUser, ExerciseProgress, ParentChild, User_Grade,UserSubscription, VideoProgress,BookProgress
-from contents.models import Book, Exercise, Subject, Subsection
+from .models import BookProgress, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, User_Grade,UserSubscription, VideoProgress,BookProgress
+from contents.models import Book, Exercise, Option, Question, Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
 from django.utils.timezone import make_aware
@@ -22,6 +23,8 @@ from django.utils.http import urlsafe_base64_encode
 from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
+from fuzzywuzzy import fuzz
+
 
 
 
@@ -534,7 +537,6 @@ def track_book_progress(request):
         return Response({'message': 'Progress not updated because read_pages is less than or equal to existing value.'}, status=200)
 
     progress.read_pages = read_pages
-    progress.completed_percentage = completed_percentage
     progress.save()
 
     return Response({
@@ -579,7 +581,6 @@ def track_video_progress(request):
         return Response({'message': 'Progress not updated because watched_seconds is less than or equal to existing value.'}, status=200)
 
     progress.watched_seconds = watched_seconds
-    progress.completed_percentage = completed_percentage
     progress.save()
 
     return Response({
@@ -589,6 +590,8 @@ def track_video_progress(request):
         'completed_percentage': round(completed_percentage, 2),
         'last_watched_at': progress.last_watched_at
     }, status=status.HTTP_200_OK)
+
+
 
 @api_view(['POST'])
 @authentication_classes([TokenAuthentication])
@@ -780,9 +783,26 @@ def aggregated_progress_per_grade(request):
         exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
         # ✅ Completed percentages
-        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
-                          list(book_progress.values_list('completed_percentage', flat=True)) + \
-                          list(exercise_progress.values_list('completed_percentage', flat=True))
+        video_percentages = [
+            min(Decimal(p.watched_seconds) / Decimal(p.video.duration.total_seconds()), 1.0) * 100
+            for p in video_progress
+            if p.video and p.video.duration.total_seconds() > 0
+        ]
+
+        book_percentages = [
+            min(Decimal(p.read_pages) / Decimal(p.book.total_pages), 1.0) * 100
+            for p in book_progress
+            if p.book and p.book.total_pages > 0
+        ]
+
+        exercise_percentages = [
+            min(Decimal(p.done_exercises) / Decimal(p.exercise.total_exercise), 1.0) * 100
+            for p in exercise_progress
+            if p.exercise and p.exercise.total_exercise > 0
+        ]
+
+        # Combine all percentages
+        all_percentages = video_percentages + book_percentages + exercise_percentages
 
         total_content = len(video_ids) + len(book_ids) + len(exercise_ids)
         completed_content = len(video_progress) + len(book_progress) + len(exercise_progress)
@@ -881,9 +901,26 @@ def aggregated_progress_subject_level(request):
         exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
         # ✅ Combine completed percentages
-        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
-                          list(book_progress.values_list('completed_percentage', flat=True)) + \
-                          list(exercise_progress.values_list('completed_percentage', flat=True))
+# ✅ Calculate completed percentages
+        video_percentages = [
+            min(Decimal(p.watched_seconds) / Decimal(p.video.duration.total_seconds()), 1.0) * 100
+            for p in video_progress
+            if p.video and p.video.duration.total_seconds() > 0
+        ]
+        book_percentages = [
+            min(Decimal(p.read_pages) / Decimal(p.book.total_pages), 1.0) * 100
+            for p in book_progress
+            if p.book and p.book.total_pages > 0
+        ]
+
+        exercise_percentages = [
+            min(Decimal(p.done_exercises) / Decimal(p.exercise.total_exercise), 1.0) * 100
+            for p in exercise_progress
+            if p.exercise and p.exercise.total_exercise > 0
+        ]
+
+        # Combine all percentages
+        all_percentages = video_percentages + book_percentages + exercise_percentages
 
         total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
         completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
@@ -942,9 +979,27 @@ def aggregated_progress_subjects_under_user_grades(request):
             book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
             exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
-            all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
-                              list(book_progress.values_list('completed_percentage', flat=True)) + \
-                              list(exercise_progress.values_list('completed_percentage', flat=True))
+    # ✅ Calculate completed percentages
+            video_percentages = [
+                min(Decimal(p.watched_seconds) / Decimal(p.video.duration.total_seconds()), 1.0) * 100
+                for p in video_progress
+                if p.video and p.video.duration.total_seconds() > 0
+            ]
+
+            book_percentages = [
+                min(Decimal(p.read_pages) / Decimal(p.book.total_pages), 1.0) * 100
+                for p in book_progress
+                if p.book and p.book.total_pages > 0
+            ]
+
+            exercise_percentages = [
+                min(Decimal(p.done_exercises) / Decimal(p.exercise.total_exercise), 1.0) * 100
+                for p in exercise_progress
+                if p.exercise and p.exercise.total_exercise > 0
+            ]
+
+            # Combine all percentages
+            all_percentages = video_percentages + book_percentages + exercise_percentages
 
             total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
             completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
@@ -1028,10 +1083,27 @@ def aggregated_progress_chapter_level(request):
         book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
         exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
-        # ✅ Combine completed_percentage values
-        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
-                          list(book_progress.values_list('completed_percentage', flat=True)) + \
-                          list(exercise_progress.values_list('completed_percentage', flat=True))
+# ✅ Calculate completed percentages
+        video_percentages = [
+            min(Decimal(p.watched_seconds) / Decimal(p.video.duration.total_seconds()), 1.0) * 100
+            for p in video_progress
+            if p.video and p.video.duration.total_seconds() > 0
+        ]
+
+        book_percentages = [
+            min(Decimal(p.read_pages) / Decimal(p.book.total_pages), 1.0) * 100
+            for p in book_progress
+            if p.book and p.book.total_pages > 0
+        ]
+
+        exercise_percentages = [
+            min(Decimal(p.done_exercises) / Decimal(p.exercise.total_exercise), 1.0) * 100
+            for p in exercise_progress
+            if p.exercise and p.exercise.total_exercise > 0
+        ]
+
+        # Combine all percentages
+        all_percentages = video_percentages + book_percentages + exercise_percentages
 
         total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
         completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
@@ -1112,9 +1184,27 @@ def aggregated_progress_chapter_level_for_user(request):
                 book_progress = BookProgress.objects.filter(user=user, book_id__in=book_ids)
                 exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
-                all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
-                                  list(book_progress.values_list('completed_percentage', flat=True)) + \
-                                  list(exercise_progress.values_list('completed_percentage', flat=True))
+        # ✅ Calculate completed percentages
+                video_percentages = [
+                    min(Decimal(p.watched_seconds) / Decimal(p.video.duration.total_seconds()), 1.0) * 100
+                    for p in video_progress
+                    if p.video and p.video.duration.total_seconds() > 0
+                ]
+
+                book_percentages = [
+                    min(Decimal(p.read_pages) / Decimal(p.book.total_pages), 1.0) * 100
+                    for p in book_progress
+                    if p.book and p.book.total_pages > 0
+                ]
+
+                exercise_percentages = [
+                    min(Decimal(p.done_exercises) / Decimal(p.exercise.total_exercise), 1.0) * 100
+                    for p in exercise_progress
+                    if p.exercise and p.exercise.total_exercise > 0
+                ]
+
+                # Combine all percentages
+                all_percentages = video_percentages + book_percentages + exercise_percentages
 
                 total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
                 completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
@@ -1175,9 +1265,27 @@ def aggregated_progress_subsection_level(request):
         exercise_progress = ExerciseProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
 
         # Combine all percentages
-        all_percentages = list(video_progress.values_list('completed_percentage', flat=True)) + \
-                          list(book_progress.values_list('completed_percentage', flat=True)) + \
-                          list(exercise_progress.values_list('completed_percentage', flat=True))
+# ✅ Calculate completed percentages
+        video_percentages = [
+            min(Decimal(p.watched_seconds) / Decimal(p.video.duration.total_seconds()), 1.0) * 100
+            for p in video_progress
+            if p.video and p.video.duration.total_seconds() > 0
+        ]
+
+        book_percentages = [
+            min(Decimal(p.read_pages) / Decimal(p.book.total_pages), 1.0) * 100
+            for p in book_progress
+            if p.book and p.book.total_pages > 0
+        ]
+
+        exercise_percentages = [
+            min(Decimal(p.done_exercises) / Decimal(p.exercise.total_exercise), 1.0) * 100
+            for p in exercise_progress
+            if p.exercise and p.exercise.total_exercise > 0
+        ]
+
+        # Combine all percentages
+        all_percentages = video_percentages + book_percentages + exercise_percentages
 
         total_content_count = len(video_ids) + len(book_ids) + len(exercise_ids)
         completed_content_count = len(video_progress) + len(book_progress) + len(exercise_progress)
@@ -1222,76 +1330,141 @@ def get_user_progress(request, content_type, content_id):
     if content_type == 'video':
         try:
             video = Video.objects.get(pk=content_id)
-            progress, created = VideoProgress.objects.get_or_create(user=user, video=video, defaults={
-                'completed_percentage': 0.0,
-                'watched_seconds': 0
-            })
-            if created:
+            progress, _ = VideoProgress.objects.get_or_create(user=user, video=video, defaults={'watched_seconds': 0})
+
+            # Add user-grade if new
+            if _:
                 grade = get_grade_from_content(video)
                 if grade:
-                    user_grade, ug_created = User_Grade.objects.get_or_create(user=user, grade=grade)
-                    if ug_created or not user_grade.is_active:
+                    user_grade, created = User_Grade.objects.get_or_create(user=user, grade=grade)
+                    if created or not user_grade.is_active:
                         user_grade.is_active = True
                         user_grade.save()
+
+            duration = video.duration.total_seconds() if video.duration else 0
+            completed_percentage = (progress.watched_seconds / duration)*100 if duration > 0 else 0.0
+
             return Response({
                 'type': 'video',
-                'completed_percentage': float(progress.completed_percentage),
+                'completed_percentage': round(min(completed_percentage, 100.0), 2),
                 'watched_seconds': progress.watched_seconds,
-                'duration_seconds': video.duration.total_seconds() if video.duration else None,
+                'duration_seconds': duration,
                 'last_watched_at': progress.last_watched_at
             })
+
         except Video.DoesNotExist:
             return Response({'error': 'Video not found.'}, status=404)
 
     elif content_type == 'book':
         try:
             book = Book.objects.get(pk=content_id)
-            progress, created = BookProgress.objects.get_or_create(user=user, book=book, defaults={
-                'completed_percentage': 0.0,
-                'read_pages': 0
-            })
-            if created:
+            progress, _ = BookProgress.objects.get_or_create(user=user, book=book, defaults={'read_pages': 0})
+
+            if _:
                 grade = get_grade_from_content(book)
                 if grade:
-                    user_grade, ug_created = User_Grade.objects.get_or_create(user=user, grade=grade)
-                    if ug_created or not user_grade.is_active:
+                    user_grade, created = User_Grade.objects.get_or_create(user=user, grade=grade)
+                    if created or not user_grade.is_active:
                         user_grade.is_active = True
                         user_grade.save()
+
+            total_pages = book.total_pages or 0
+            completed_percentage = (progress.read_pages / total_pages)*100 if total_pages > 0 else 0.0
+
             return Response({
                 'type': 'book',
-                'completed_percentage': float(progress.completed_percentage),
+                'completed_percentage': round(min(completed_percentage, 100.0), 2),
                 'read_pages': progress.read_pages,
-                'total_pages': book.total_pages,
+                'total_pages': total_pages,
                 'last_read_at': progress.last_read_at
             })
+
         except Book.DoesNotExist:
             return Response({'error': 'Book not found.'}, status=404)
 
     elif content_type == 'exercise':
         try:
             exercise = Exercise.objects.get(pk=content_id)
-            progress, created = ExerciseProgress.objects.get_or_create(user=user, exercise=exercise, defaults={
-                'completed_percentage': 0.0,
-                'done_exercises': 0
-            })
-            if created:
+            progress, _ = ExerciseProgress.objects.get_or_create(user=user, exercise=exercise, defaults={'done_exercises': 0})
+
+            if _:
                 grade = get_grade_from_content(exercise)
                 if grade:
-                    user_grade, ug_created = User_Grade.objects.get_or_create(user=user, grade=grade)
-                    if ug_created or not user_grade.is_active:
+                    user_grade, created = User_Grade.objects.get_or_create(user=user, grade=grade)
+                    if created or not user_grade.is_active:
                         user_grade.is_active = True
                         user_grade.save()
+
+            total = exercise.total_exercise or 0
+            completed_percentage = (progress.done_exercises / total)*100 if total > 0 else 0.0
+
             return Response({
                 'type': 'exercise',
-                'completed_percentage': float(progress.completed_percentage),
+                'completed_percentage': round(min(completed_percentage, 100.0), 2),
                 'done_exercises': progress.done_exercises,
-                'total_exercises': exercise.total_exercise,
+                'total_exercises': total,
                 'last_done_at': progress.last_done_at
             })
+
         except Exercise.DoesNotExist:
             return Response({'error': 'Exercise not found.'}, status=404)
 
     return Response({'error': 'Invalid content type. Use "video", "book", or "exercise".'}, status=400)
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def submit_exercise_answer(request):
+    user = request.user
+    question_id = request.data.get('question_id')
+    selected_option_id = request.data.get('selected_option_id')
+    written_answer = request.data.get('written_answer', '').strip()
+
+    try:
+        question = Question.objects.get(id=question_id)
+    except Question.DoesNotExist:
+        return Response({'error': 'Question not found'}, status=404)
+
+    # Check if already answered
+    answer_obj, created = ExerciseAnswer.objects.get_or_create(
+        user=user,
+        question=question,
+        defaults={
+            'exercise': question.exercises.first(),  # assumes 1 exercise per question
+            'answered_at': timezone.now()
+        }
+    )
+
+    # Handle 'choose'
+    if question.question_type == 'choose':
+        try:
+            selected_option = Option.objects.get(id=selected_option_id, question=question)
+            answer_obj.selected_option = selected_option
+            answer_obj.is_correct = selected_option.is_correct
+        except Option.DoesNotExist:
+            return Response({'error': 'Invalid option'}, status=400)
+
+    # Handle 'write'
+    elif question.question_type == 'write':
+        answer_obj.written_answer = written_answer
+        # Simple match (optional: use fuzzy matching)
+        answer_obj.is_correct = question.answer.strip().lower() == written_answer.lower()
+        similarity = fuzz.ratio(written_answer.strip().lower(), question.answer.strip().lower())
+        is_correct = similarity >= 80
+
+    answer_obj.save()
+
+    # ✅ Update ExerciseProgress
+    exercise = answer_obj.exercise
+    progress, _ = ExerciseProgress.objects.get_or_create(user=user, exercise=exercise)
+    total_answered = ExerciseAnswer.objects.filter(user=user, exercise=exercise).count()
+    progress.done_exercises = total_answered
+    progress.save(update_fields=["done_exercises", "last_done_at"])
+
+    return Response({
+        'status': 'Answer saved',
+        'is_correct': answer_obj.is_correct
+    })
 
 
 

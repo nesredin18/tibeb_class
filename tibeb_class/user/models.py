@@ -35,7 +35,6 @@ class ParentChild(models.Model):
 class VideoProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='videoprogress')
     video = models.ForeignKey('contents.Video', on_delete=models.CASCADE, null=True, blank=True)
-    completed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
     watched_seconds = models.PositiveIntegerField(default=0)
     last_watched_at = models.DateTimeField(auto_now=True)
 
@@ -44,7 +43,6 @@ class VideoProgress(models.Model):
 class BookProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='bookprogress')
     book = models.ForeignKey('contents.Book', on_delete=models.CASCADE, null=True, blank=True)
-    completed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
     read_pages = models.PositiveIntegerField(default=0)
     last_read_at = models.DateTimeField(auto_now=True)
 
@@ -53,12 +51,25 @@ class BookProgress(models.Model):
 class ExerciseProgress(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='exerciseprogress')
     exercise = models.ForeignKey('contents.Exercise', on_delete=models.CASCADE, null=True, blank=True)
-    completed_percentage = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
     done_exercises = models.PositiveIntegerField(default=0)
     last_done_at = models.DateTimeField(auto_now=True)
 
     class Meta:
         unique_together = ('user','exercise')
+class QuestionProgress(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='question_progress')
+    question = models.ForeignKey('contents.Question', on_delete=models.CASCADE, related_name='progress')
+    exercise = models.ForeignKey('contents.Exercise', on_delete=models.CASCADE, related_name='question_progress')  # Optional but helpful for filtering
+    answer_text = models.TextField(blank=True)  # For write type questions
+    selected_option = models.ForeignKey('contents.Option', on_delete=models.SET_NULL, null=True, blank=True)  # For choose type
+    answered_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ('user', 'question','exercise')  # So a user can only have one record per question
+
+    def __str__(self):
+        return f"{self.user.username} - {self.question}"
+
 
 class UserSubscription(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='subscriptions')
@@ -97,3 +108,20 @@ class User_Grade(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.grade.name}"
+    
+
+
+
+class ExerciseAnswer(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='exercise_answers')
+    exercise = models.ForeignKey('contents.Exercise', on_delete=models.CASCADE)
+    question = models.ForeignKey('contents.Question', on_delete=models.CASCADE)
+    selected_option = models.ForeignKey('contents.Option', on_delete=models.SET_NULL, null=True, blank=True)  # for 'choose' type
+    written_answer = models.TextField(blank=True, null=True)  # for 'write' type
+    answered_at = models.DateTimeField(default=timezone.now)
+
+    class Meta:
+        unique_together = ('user', 'question','exercise')
+
+    def __str__(self):
+        return f"{self.user.username} - Q:{self.question.id} - {'Correct' if self.is_correct else 'Wrong'}"

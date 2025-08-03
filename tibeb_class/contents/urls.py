@@ -1,9 +1,9 @@
 from django.urls import path
 from .views import (
-    get_grades, get_subjects, get_books, get_chapters, get_subsections,
+    get_exercise_progress, get_grades, get_subjects, get_books, get_chapters, get_subsections,
     get_exercises, get_videos,featured_subjects,subjects_by_grade,
     chapters_by_subject, subsections_by_chapter,
-    get_chapter_by_id, get_subsection_by_id,get_content_by_type_and_level,get_video_key,get_exercise_question
+    get_chapter_by_id, get_subsection_by_id,get_content_by_type_and_level,get_video_key,get_exercise_question,submit_answer
 )
 
 urlpatterns = [
@@ -23,6 +23,8 @@ urlpatterns = [
     path('get-content/',get_content_by_type_and_level,name='get_content_by_type_and_level'),
     path("get-key/", get_video_key, name="get_video_key"),
     path('exercise/<int:exercise_id>/question/', get_exercise_question, name='get_exercise_question'),
+    path('submit-answer/', submit_answer, name='submit-answer'),
+    path('exercise/<int:exercise_id>/progress/', get_exercise_progress, name='exercise-progress'),
 
 
 ]

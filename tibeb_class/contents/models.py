@@ -274,7 +274,7 @@ class Video(models.Model):
             }
 
             # Exclude self to allow updates
-            existing = Book.objects.filter(**filters).exclude(pk=self.pk)
+            existing = Video.objects.filter(**filters).exclude(pk=self.pk)
 
             if existing.exists():
                 raise ValidationError("A 'class' type Video already exists at this level.")

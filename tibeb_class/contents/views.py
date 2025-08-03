@@ -4,9 +4,15 @@ from django.http import FileResponse
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
+
+from user.models import ExerciseProgress, QuestionProgress
 from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
 from .serializers import GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer,SubjectMiniSerializer
 import random
+from fuzzywuzzy import fuzz
+from .models import Question, Option
+
+
 
 @api_view(['GET'])
 def get_video_key(request):
@@ -246,3 +252,148 @@ def featured_subjects(request):
 
         'featured_subjects': serialized.data
     }, status=200)
+
+
+
+@api_view(['POST'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def submit_answer(request):
+    question_id = request.data.get('question_id')
+    exercise_id = request.data.get('exercise_id')
+    user_answer = request.data.get('user_answer')
+    user = request.user
+
+    if not all([question_id, exercise_id, user_answer is not None]):
+        return Response({"error": "Missing question_id, exercise_id or user_answer"}, status=status.HTTP_400_BAD_REQUEST)
+
+    try:
+        question = Question.objects.get(id=question_id)
+    except Question.DoesNotExist:
+        return Response({"error": "Question not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    try:
+        exercise = Exercise.objects.get(id=exercise_id)
+    except Exercise.DoesNotExist:
+        return Response({"error": "Exercise not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    result = {
+        "question_id": question_id,
+        "exercise_id": exercise_id,
+        "question_type": question.question_type,
+    }
+
+    selected_option = None
+    answer_text = ""
+
+    # Choose-type question
+    if question.question_type == 'choose':
+        correct_option = Option.objects.filter(question=question, is_correct=True).first()
+        if not correct_option:
+            return Response({"error": "No correct option set for this question"}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+        if str(user_answer).isdigit():
+            selected_option = Option.objects.filter(id=int(user_answer), question=question).first()
+        else:
+            selected_option = Option.objects.filter(text__iexact=user_answer.strip(), question=question).first()
+
+        is_correct = selected_option and selected_option.id == correct_option.id
+
+        result.update({
+            "correct": is_correct,
+            "correct_answer": correct_option.text,
+            "selected_option": selected_option.text if selected_option else None,
+        })
+
+    # Write-type question
+    elif question.question_type == 'write':
+        expected = question.answer.strip().lower()
+        answer_text = user_answer.strip()
+        similarity = fuzz.ratio(answer_text.lower(), expected)
+        is_correct = similarity >= 80
+
+        result.update({
+            "correct": is_correct,
+            "similarity": similarity,
+            "expected_answer": question.answer,
+            "user_answer": answer_text
+        })
+    else:
+        return Response({"error": "Unsupported question type"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # ✅ Save Question Progress
+    QuestionProgress.objects.update_or_create(
+        user=user,
+        question=question,
+        exercise=exercise,
+        defaults={
+            "selected_option": selected_option,
+            "answer_text": answer_text,
+        }
+    )
+
+    # ✅ Update Exercise Progress
+    total_answered = QuestionProgress.objects.filter(user=user, exercise=exercise).count()
+
+    ExerciseProgress.objects.update_or_create(
+        user=user,
+        exercise=exercise,
+        defaults={
+            "done_exercises": total_answered
+        }
+    )
+
+    return Response(result, status=status.HTTP_200_OK)
+
+@api_view(['GET'])
+@authentication_classes([TokenAuthentication])
+@permission_classes([IsAuthenticated])
+def get_exercise_progress(request, exercise_id):
+    user = request.user
+
+    try:
+        exercise = Exercise.objects.get(id=exercise_id)
+    except Exercise.DoesNotExist:
+        return Response({"error": "Exercise not found"}, status=status.HTTP_404_NOT_FOUND)
+
+    questions = list(exercise.questions.order_by('rank'))
+    progress_entries = QuestionProgress.objects.filter(user=user, exercise=exercise).select_related('question')
+
+    progress_map = {p.question_id: p for p in progress_entries}
+    progress_data = []
+
+    for question in questions:
+        p = progress_map.get(question.id)
+        if not p:
+            continue  # unanswered
+
+        data = {
+            "question_id": question.id,
+            "answered_answer": p.selected_option_id if question.question_type == "choose" else p.answer_text,
+        }
+
+        if question.question_type == "choose":
+            correct_option = question.options.filter(is_correct=True).first()
+            data["correct_answer"] = correct_option.id if correct_option else None
+            data["correct"] = p.selected_option_id == (correct_option.id if correct_option else None)
+
+        elif question.question_type == "write":
+            expected = question.answer.strip()
+            user_answer = p.answer_text.strip()
+            data["correct"] = fuzz.ratio(user_answer.lower(), expected.lower()) >= 80
+            data["correct_answer"] = expected
+            data["expected_answer"] = expected  # needed for showing explanation box
+
+        progress_data.append(data)
+
+    # Optional: resume index logic
+    answered_ids = set(progress_map.keys())
+    all_ids = [q.id for q in questions]
+    resume_index = next((i for i, qid in enumerate(all_ids) if qid not in answered_ids), len(all_ids))
+
+    return Response({
+        "exercise_id": exercise_id,
+        "progress": progress_data,
+        "resume_index": resume_index,
+        "completed": resume_index == len(all_ids),
+    })
