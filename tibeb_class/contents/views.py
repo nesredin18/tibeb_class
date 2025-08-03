@@ -301,8 +301,8 @@ def submit_answer(request):
 
         result.update({
             "correct": is_correct,
-            "correct_answer": correct_option.text,
-            "selected_option": selected_option.text if selected_option else None,
+            "correct_answer": correct_option.id,
+            "selected_option": selected_option.id if selected_option else None,
         })
 
     # Write-type question
