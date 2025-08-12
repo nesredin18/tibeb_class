@@ -6,7 +6,7 @@ from .views import start_grade,user_grade,aggregated_progress_per_grade,aggregat
 from .views import update_user,get_user_info, add_child_account, respond_to_parent_request
 from .views import get_parent_childs,get_child_requests,cancel_child_request,unlink_child
 from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_email,update_email_and_send_verification
-
+from .views import reset_question_progress_for_exercise
 urlpatterns = [
     path('signup/', signup, name='signup'),
     path('verify-email/<uidb64>/<token>/', verify_email, name='verify-email'),
@@ -15,6 +15,7 @@ urlpatterns = [
     path('change-password/', change_password, name='change-password'),
     path('resend-varification/', resend_verification_email, name='resend-varification'),
     path('update-email/', update_email_and_send_verification, name='update_email_and_send_verification'),
+    path('reset-exercise/', reset_question_progress_for_exercise, name='reset_question_progress_for_exercise'),
     path('update/', update_user, name='update-user'),
     path('login/', login, name='login'),
     path('',get_user_info, name='user-info'),

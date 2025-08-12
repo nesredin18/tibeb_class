@@ -7,10 +7,12 @@ from rest_framework import status
 
 from user.models import ExerciseProgress, QuestionProgress
 from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
-from .serializers import GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer,SubjectMiniSerializer
+from .serializers import GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer
 import random
 from fuzzywuzzy import fuzz
 from .models import Question, Option
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import IsAuthenticated
 
 
 
@@ -167,11 +169,7 @@ def get_videos(request):
     videos = Video.objects.all()
     serializer = VideoSerializer(videos, many=True)
     return Response(serializer.data)
-from rest_framework.decorators import api_view, authentication_classes, permission_classes
-from rest_framework.permissions import IsAuthenticated
-from rest_framework.response import Response
-from rest_framework.authentication import TokenAuthentication
-from django.db.models import Q
+
 
 @api_view(['GET'])
 def get_content_by_type_and_level(request):
@@ -256,7 +254,6 @@ def featured_subjects(request):
 
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def submit_answer(request):
     question_id = request.data.get('question_id')
@@ -346,7 +343,6 @@ def submit_answer(request):
     return Response(result, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_exercise_progress(request, exercise_id):
     user = request.user

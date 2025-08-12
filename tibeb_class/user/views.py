@@ -8,13 +8,11 @@ from rest_framework.response import Response
 from rest_framework import status
 from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
-from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
-from .models import BookProgress, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, User_Grade,UserSubscription, VideoProgress,BookProgress
+from .models import BookProgress, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
 from contents.models import Book, Exercise, Option, Question, Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
-from django.utils.timezone import make_aware
 from datetime import datetime
 from django.db.models import Q
 from django.contrib.auth.tokens import default_token_generator
@@ -24,6 +22,13 @@ from django.utils.encoding import force_bytes
 from django.core.mail import send_mail
 from django.conf import settings
 from fuzzywuzzy import fuzz
+from django.contrib.auth import authenticate
+from rest_framework_simplejwt.tokens import RefreshToken
+from datetime import timedelta
+from tibeb_class.email_templates import EmailTemplateHelper
+from django.utils.html import strip_tags
+from django.core.mail import EmailMultiAlternatives
+
 
 
 
@@ -34,19 +39,41 @@ User = get_user_model()
 # Create your views here.
 @api_view(['POST'])
 def login(request):
-        user = get_object_or_404(User, username=request.data['email'])
-        if not user.check_password(request.data['password']):
-            return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
-        token, created = Token.objects.get_or_create(user=user)
-        serializer = UserSerializer(instance=user)
-        return Response({'token': token.key, 'user': serializer.data}, status=status.HTTP_200_OK)
+    username = request.data.get('email')  # you're using 'email' as username
+    password = request.data.get('password')
+    remember_me = request.data.get('remember_me', False)
+
+    user = authenticate(username=username, password=password)
+
+    if user is None:
+        return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Create a refresh token
+    refresh = RefreshToken.for_user(user)
+
+    # Adjust expiration based on remember_me flag
+    if remember_me:
+        refresh.set_exp(lifetime=timedelta(days=7))
+        refresh.access_token.set_exp(lifetime=timedelta(days=1))
+    else:
+        refresh.set_exp(lifetime=timedelta(hours=24))
+        refresh.access_token.set_exp(lifetime=timedelta(minutes=180))
+
+    user_serializer = UserSerializer(user)
+
+    return Response({
+        'token': str(refresh.access_token),
+        'refresh': str(refresh),
+        'user': user_serializer.data
+    }, status=status.HTTP_200_OK)
 @api_view(['POST'])
 def signup(request):
     data = request.data.copy()
     data['username'] = data.get('email')
 
+    # Handle grades input (supports list or single value)
     grade_ids = data.getlist('grades') if hasattr(data, 'getlist') else data.get('grades', [])
-    if isinstance(grade_ids, str):  
+    if isinstance(grade_ids, str):
         grade_ids = [grade_ids]
     if grade_ids:
         for grade_id in grade_ids:
@@ -56,15 +83,33 @@ def signup(request):
     serializer = UserSerializer(data=data)
     if serializer.is_valid():
         user = serializer.save()
-        token, _ = Token.objects.get_or_create(user=user)
 
+        # Assign grades
         grades = user.grades.all()
-        for i, grade in enumerate(grades):
+        for grade in grades:
             User_Grade.objects.create(user=user, grade=grade)
 
-        return Response({'token': token.key, 'user': serializer.data}, status=status.HTTP_201_CREATED)
+        # ✅ Generate JWT tokens
+        refresh = RefreshToken.for_user(user)
+        access_token = str(refresh.access_token)
+        refresh_token = str(refresh)
 
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        return Response({
+            'token': access_token,
+            'refresh': refresh_token,
+            'user': serializer.data
+        }, status=status.HTTP_201_CREATED)
+
+    # Handle username -> email error
+    errors = dict(serializer.errors)
+    if 'username' in errors:
+        errors['email'] = [
+            "A user with that email already exists."
+            if "already exists" in str(e) else str(e)
+            for e in errors.pop('username')
+        ]
+
+    return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['GET'])
 def verify_email(request, uidb64, token):
@@ -83,7 +128,6 @@ def verify_email(request, uidb64, token):
         return Response({'error': 'Verification link is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def resend_verification_email(request):
     user = request.user
@@ -98,14 +142,16 @@ def resend_verification_email(request):
     verification_link = f"{domain}/verify-email/{uid}/{token}/"
 
     # Optional: you can import and use the `render_verification_email_html` you created before
-    email_body = f"Click the link to verify your email: {verification_link}"
-
-    send_mail(
-        subject='Verify Your Email',
-        message=email_body,
+    html = EmailTemplateHelper.verify_email_html(verification_link)
+    text = strip_tags(html)
+    msg = EmailMultiAlternatives(
+        subject="Verify Your Email",
+        body=text,  # plain-text
         from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[user.email],
+        to=[user.email],
     )
+    msg.attach_alternative(html, "text/html")
+    msg.send(fail_silently=True)
 
     return Response({'message': 'Verification email resent.'}, status=status.HTTP_200_OK)
 @api_view(['POST'])
@@ -121,13 +167,16 @@ def send_password_reset_email(request):
         domain =settings.FRONTEND_URL  # Replace with your actual domain
 
         reset_link = f"{domain}/reset-password/{uid}/{token}/"
-
-        send_mail(
+        html = EmailTemplateHelper.forgot_password_html(reset_link)
+        text = strip_tags(html)
+        msg = EmailMultiAlternatives(
             subject="Password Reset Request",
-            message=f"Click the link to reset your password: {reset_link}",
+            body=text,  # plain-text
             from_email=settings.DEFAULT_FROM_EMAIL,
-            recipient_list=[user.email],
+            to=[user.email],
         )
+        msg.attach_alternative(html, "text/html")
+        msg.send(fail_silently=True)
         return Response({'message': 'Password reset link sent successfully.'}, status=status.HTTP_200_OK)
     except User.DoesNotExist:
         return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_404_NOT_FOUND)
@@ -152,7 +201,6 @@ def reset_password(request, uidb64, token):
         return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
     
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def change_password(request):
     user = request.user
@@ -174,7 +222,6 @@ def change_password(request):
     return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def update_email_and_send_verification(request):
     new_email = request.data.get('email')
@@ -210,7 +257,6 @@ def update_email_and_send_verification(request):
 
     return Response({'message': 'Email updated and verification sent.'}, status=200)
 @api_view(['PUT', 'PATCH'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def update_user(request):
     user = request.user
@@ -256,7 +302,6 @@ def test(request):
         return Response("passed for {}".format(request.user.username), status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def add_child_account(request):
     parent = request.user
@@ -332,7 +377,6 @@ def add_child_account(request):
 
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def respond_to_parent_request(request):
     if request.user.role != 'student':
@@ -356,7 +400,6 @@ def respond_to_parent_request(request):
     except ParentChild.DoesNotExist:
         return Response({'error': 'No such request found.'}, status=404)
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def cancel_child_request(request):
     if request.user.role != 'parent':
@@ -375,7 +418,6 @@ def cancel_child_request(request):
     except ParentChild.DoesNotExist:
         return Response({'error': 'No such request found.'}, status=404)
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def unlink_child(request):
     if request.user.role != 'parent':
@@ -395,7 +437,6 @@ def unlink_child(request):
         return Response({'error': 'No such request found.'}, status=404)
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_user_info(request):
     user = request.user
@@ -412,7 +453,6 @@ def get_user_info(request):
     }, status=200)
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_pending_requests(request):
     if request.user.role != 'student':
@@ -433,7 +473,6 @@ def get_pending_requests(request):
     ]
     return Response(result, status=200)
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_parent_childs(request):
     if request.user.role != 'parent':
@@ -454,7 +493,6 @@ def get_parent_childs(request):
     ]
     return Response(result, status=200)
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_child_requests(request):
     if request.user.role != 'parent':
@@ -476,7 +514,6 @@ def get_child_requests(request):
     return Response(result, status=200)
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def get_accepted_requests(request):
     if request.user.role != 'student':
@@ -502,7 +539,6 @@ def get_accepted_requests(request):
 # Adjust to your actual app name
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def track_book_progress(request):
     user = request.user
@@ -547,7 +583,6 @@ def track_book_progress(request):
         'last_read_at': progress.last_read_at
     }, status=status.HTTP_200_OK)
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
 @permission_classes([IsAuthenticated])
 def track_video_progress(request):
     user = request.user
@@ -594,7 +629,7 @@ def track_video_progress(request):
 
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def create_user_subscription(request):
     user = request.user
@@ -620,7 +655,7 @@ def create_user_subscription(request):
         'grade': grade.name
     }, status=201)
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def get_active_subscription(request):
     user = request.user
@@ -664,7 +699,7 @@ def get_active_subscription(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def user_grade(request):
     user = request.user
@@ -703,7 +738,7 @@ def user_grade(request):
         })
     return Response(result, status=200)
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def start_grade(request):
     user = request.user
@@ -725,7 +760,7 @@ def start_grade(request):
 from django.utils.timezone import datetime
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def aggregated_progress_per_grade(request):
     user = request.user
@@ -843,7 +878,7 @@ def aggregated_progress_per_grade(request):
     }, status=200)
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def aggregated_progress_subject_level(request):
     user = request.user
@@ -942,7 +977,7 @@ def aggregated_progress_subject_level(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def aggregated_progress_subjects_under_user_grades(request):
     user = request.user
@@ -1021,7 +1056,7 @@ def aggregated_progress_subjects_under_user_grades(request):
     }, status=200)
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def aggregated_progress_chapter_level(request):
     user = request.user
@@ -1124,7 +1159,7 @@ def aggregated_progress_chapter_level(request):
     }, status=200)
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def aggregated_progress_chapter_level_for_user(request):
     user = request.user
@@ -1209,6 +1244,29 @@ def aggregated_progress_chapter_level_for_user(request):
                 total_contents = len(video_ids) + len(book_ids) + len(exercise_ids)
                 completed_contents = len(video_progress) + len(book_progress) + len(exercise_progress)
                 average_percentage = round(sum(all_percentages) / total_contents, 2) if total_contents > 0 else 0.0
+                # ✅ NEW: Question correctness calculation
+                question_progress_qs = QuestionProgress.objects.filter(user=user, exercise_id__in=exercise_ids)
+                total_questions_answered = question_progress_qs.count()
+
+                correct_count = 0
+                from fuzzywuzzy import fuzz
+
+                for qp in question_progress_qs:
+                    if qp.question.question_type == 'choose':
+                        if qp.selected_option and qp.selected_option.is_correct:
+                            correct_count += 1
+                    elif qp.question.question_type == 'write':
+                        correct_answer = qp.question.answer.strip().lower()
+                        user_answer = qp.answer_text.strip().lower()
+                        similarity = fuzz.ratio(correct_answer, user_answer)
+                        if similarity >= 80:
+                            correct_count += 1
+
+                correct_percentage = (
+    round((correct_count / total_questions_answered) * 100, 2)
+    if total_questions_answered > 0 else None  # or "N/A"
+)
+
 
                 result.append({
                     'grade_id': grade.id,
@@ -1219,7 +1277,9 @@ def aggregated_progress_chapter_level_for_user(request):
                     'chapter_title': chapter.title,
                     'total_content': total_contents,
                     'contents_with_progress': completed_contents,
-                    'average_percentage_completed': average_percentage
+                    'average_percentage_completed': average_percentage,
+                    'exercise_correct_answer_percentage': correct_percentage  # ✅ NEW FIELD
+
                 })
 
     return Response({
@@ -1229,7 +1289,7 @@ def aggregated_progress_chapter_level_for_user(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def aggregated_progress_subsection_level(request):
     user = request.user
@@ -1311,7 +1371,7 @@ def aggregated_progress_subsection_level(request):
 
 
 @api_view(['GET'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def get_user_progress(request, content_type, content_id):
     user = request.user
@@ -1412,7 +1472,7 @@ def get_user_progress(request, content_type, content_id):
     return Response({'error': 'Invalid content type. Use "video", "book", or "exercise".'}, status=400)
 
 @api_view(['POST'])
-@authentication_classes([TokenAuthentication])
+
 @permission_classes([IsAuthenticated])
 def submit_exercise_answer(request):
     user = request.user
@@ -1465,7 +1525,27 @@ def submit_exercise_answer(request):
         'status': 'Answer saved',
         'is_correct': answer_obj.is_correct
     })
+@api_view(['POST'])
 
+@permission_classes([IsAuthenticated])
+def reset_question_progress_for_exercise(request):
+    user = request.user
+    exercise_id = request.data.get('exercise_id')
+
+    if not exercise_id:
+        return Response({'error': 'exercise_id is required.'}, status=400)
+
+    try:
+        exercise = Exercise.objects.get(id=exercise_id)
+    except Exercise.DoesNotExist:
+        return Response({'error': 'Exercise not found.'}, status=404)
+
+    deleted_count, _ = QuestionProgress.objects.filter(user=user, exercise=exercise).delete()
+
+    return Response({
+        'status': 'success',
+        'message': f'{deleted_count} progress entries reset for exercise {exercise.id}.'
+    }, status=200)
 
 
 

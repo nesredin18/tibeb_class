@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
+
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -42,10 +44,10 @@ INSTALLED_APPS = [
     'user',
     'subscription',
     'rest_framework',
-    "rest_framework.authtoken",
+    'rest_framework_simplejwt',
     'contents',
     'corsheaders'
-]
+    ]
 
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
@@ -59,6 +61,11 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'tibeb_class.urls'
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
 
 TEMPLATES = [
     {
@@ -146,5 +153,12 @@ EMAIL_HOST_PASSWORD = 'ourc vyel vmec oios'
 DEFAULT_FROM_EMAIL = 'tibebclass@gmail.com'
 
 FRONTEND_URL = "http://localhost:5173"  # or your deployed domain
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Short for security
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Can adjust per "remember me"
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
 
 

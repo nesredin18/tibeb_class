@@ -34,6 +34,10 @@ class UserSerializer(serializers.ModelSerializer):
         if grades_data:
             user.grades.set(grades_data)
         return user
+    def validate_username(self, value):
+        if User.objects.filter(username=value).exists():
+            raise serializers.ValidationError("A user with that email already exists.")
+        return value
 class UserUpdateSerializer(serializers.ModelSerializer):
     grades = serializers.PrimaryKeyRelatedField(
         queryset=Grade.objects.all(), many=True, required=False
