@@ -7,7 +7,13 @@ from .views import update_user,get_user_info, add_child_account, respond_to_pare
 from .views import get_parent_childs,get_child_requests,cancel_child_request,unlink_child
 from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_email,update_email_and_send_verification
 from .views import reset_question_progress_for_exercise
+from rest_framework_simplejwt.views import (
+    TokenObtainPairView,
+    TokenRefreshView,
+    TokenVerifyView,  # optional
+)
 urlpatterns = [
+    path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),         # refresh
     path('signup/', signup, name='signup'),
     path('verify-email/<uidb64>/<token>/', verify_email, name='verify-email'),
     path('send-password-reset/', send_password_reset_email, name='password-reset-email'),

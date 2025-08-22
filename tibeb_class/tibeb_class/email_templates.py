@@ -3,7 +3,7 @@ class EmailTemplateHelper:
     def _header(backend_url: str) -> str:
         logo = f"{backend_url}Vacancy.Theme/emaillogo.png"
         return f"""
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#DFC57B;padding:0;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FFF8DF;padding:0;font-family:Arial,sans-serif;">
   <tr><td align="center" style="padding:16px 0;">
     <img src="{logo}" alt="Tibeb Class" style="height:40px;display:block;">
   </td></tr>

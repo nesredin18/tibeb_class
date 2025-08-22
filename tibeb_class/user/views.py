@@ -28,6 +28,7 @@ from datetime import timedelta
 from tibeb_class.email_templates import EmailTemplateHelper
 from django.utils.html import strip_tags
 from django.core.mail import EmailMultiAlternatives
+import re
 
 
 
@@ -66,11 +67,22 @@ def login(request):
         'refresh': str(refresh),
         'user': user_serializer.data
     }, status=status.HTTP_200_OK)
+def is_strong_password(password):
+    return (
+        len(password) >= 8 and
+        re.search(r'[A-Z]', password) and
+        re.search(r'[a-z]', password) and
+        re.search(r'\d', password) and
+        re.search(r'[!@#$%^&*(),.?":{}|<>]', password)
+    )
 @api_view(['POST'])
 def signup(request):
     data = request.data.copy()
     data['username'] = data.get('email')
-
+    if not is_strong_password(data.get('password')):
+        return Response({'password': [
+            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+        ]}, status=status.HTTP_400_BAD_REQUEST)
     # Handle grades input (supports list or single value)
     grade_ids = data.getlist('grades') if hasattr(data, 'getlist') else data.get('grades', [])
     if isinstance(grade_ids, str):
@@ -186,6 +198,10 @@ def reset_password(request, uidb64, token):
     password = request.data.get('password')
     if not password:
         return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
+    if not is_strong_password(password):
+        return Response({'password': [
+            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+        ]}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
         uid = urlsafe_base64_decode(uidb64).decode()
@@ -213,7 +229,10 @@ def change_password(request):
 
     if new_password != confirm_password:
         return Response({'error': 'New password and confirm password do not match.'}, status=status.HTTP_400_BAD_REQUEST)
-
+    if not is_strong_password(new_password):
+        return Response({'password': [
+            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+        ]}, status=status.HTTP_400_BAD_REQUEST)
     if not user.check_password(old_password):
         return Response({'error': 'Old password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
 
