@@ -1,7 +1,11 @@
+from urllib.parse import urljoin
+from django.conf import settings
+from django.templatetags.static import static
 class EmailTemplateHelper:
     @staticmethod
-    def _header(backend_url: str) -> str:
-        logo = f"{backend_url}Vacancy.Theme/emaillogo.png"
+    def _header() -> str:
+        logo = urljoin(settings.BACKEND_URL, static("emails/logo.png"))
+
         return f"""
 <table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FFF8DF;padding:0;font-family:Arial,sans-serif;">
   <tr><td align="center" style="padding:16px 0;">
@@ -19,8 +23,8 @@ class EmailTemplateHelper:
 </table>"""
 
     @staticmethod
-    def verify_email_html(verification_link: str, backend_url: str = "") -> str:
-        header = EmailTemplateHelper._header(backend_url)
+    def verify_email_html(verification_link: str) -> str:
+        header = EmailTemplateHelper._header()
         footer = EmailTemplateHelper._footer()
         content = f"""
 <h1 style="font-size:24px;text-align:center;font-weight:bold;color:#111827;margin:0 0 16px;">
@@ -61,8 +65,8 @@ class EmailTemplateHelper:
         return shell
     
     @staticmethod
-    def forgot_password_html(reset_link: str,backend_url: str = "") -> str:
-        header = EmailTemplateHelper._header(backend_url)
+    def forgot_password_html(reset_link: str) -> str:
+        header = EmailTemplateHelper._header()
         footer = EmailTemplateHelper._footer()
         content = f"""
     <h1 style="font-size:24px;text-align:center;font-weight:bold;color:#111827;margin:0 0 16px;">
