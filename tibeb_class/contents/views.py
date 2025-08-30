@@ -254,12 +254,10 @@ def featured_subjects(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
 def submit_answer(request):
     question_id = request.data.get('question_id')
     exercise_id = request.data.get('exercise_id')
     user_answer = request.data.get('user_answer')
-    user = request.user
 
     if not all([question_id, exercise_id, user_answer is not None]):
         return Response({"error": "Missing question_id, exercise_id or user_answer"}, status=status.HTTP_400_BAD_REQUEST)
@@ -317,28 +315,29 @@ def submit_answer(request):
         })
     else:
         return Response({"error": "Unsupported question type"}, status=status.HTTP_400_BAD_REQUEST)
-
+    user = request.user
     # ✅ Save Question Progress
-    QuestionProgress.objects.update_or_create(
-        user=user,
-        question=question,
-        exercise=exercise,
-        defaults={
-            "selected_option": selected_option,
-            "answer_text": answer_text,
-        }
-    )
+    if(user.is_authenticated):
+        QuestionProgress.objects.update_or_create(
+            user=user,
+            question=question,
+            exercise=exercise,
+            defaults={
+                "selected_option": selected_option,
+                "answer_text": answer_text,
+            }
+        )
 
-    # ✅ Update Exercise Progress
-    total_answered = QuestionProgress.objects.filter(user=user, exercise=exercise).count()
+        # ✅ Update Exercise Progress
+        total_answered = QuestionProgress.objects.filter(user=user, exercise=exercise).count()
 
-    ExerciseProgress.objects.update_or_create(
-        user=user,
-        exercise=exercise,
-        defaults={
-            "done_exercises": total_answered
-        }
-    )
+        ExerciseProgress.objects.update_or_create(
+            user=user,
+            exercise=exercise,
+            defaults={
+                "done_exercises": total_answered
+            }
+        )
 
     return Response(result, status=status.HTTP_200_OK)
 
