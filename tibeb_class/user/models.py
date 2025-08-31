@@ -12,6 +12,8 @@ class CustomUser(AbstractUser):
     grades = models.ManyToManyField('contents.Grade', related_name='users', blank=True)
     phone_number = models.CharField(max_length=15, blank=True, null=True)
     is_verified = models.BooleanField(default=False)  # Add this line
+    last_email_change = models.DateTimeField(null=True, blank=True, default=timezone.now)
+
 
 
     def __str__(self):

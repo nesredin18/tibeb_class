@@ -249,9 +249,16 @@ def update_email_and_send_verification(request):
         return Response({'error': 'Email is required.'}, status=400)
 
     user = request.user
+    if user.last_email_change and timezone.now() - user.last_email_change < timedelta(days=30):
+        return Response(
+            {'error': 'You can only change your email once every 30 days.'},
+            status=400
+        )
     user.email = new_email
     user.username=new_email
     user.is_verified = False
+    user.last_email_change = timezone.now()   # record timestamp
+
 
     try:
         user.save()
