@@ -5,7 +5,7 @@ from rest_framework.response import Response
 
 from contents.models import Grade
 from .models import Payment, SubscriptionPlan,SubscriptionPlanPricing
-from .serializers import PaymentInitSerializer, SubscriptionPlanSerializer
+from .serializers import PaymentInitSerializer, PaymentSerializer, SubscriptionPlanSerializer
 from rest_framework import status
 from decimal import Decimal
 import uuid,requests
@@ -94,19 +94,22 @@ def initialize_payment(request):
     duration = request.data.get("duration")
     period_type = request.data.get("period_type")
     grades = request.data.get("grades", [])
-    return_url = request.data.get("return_url")  # ✅ comes from frontend
-  # list of grade ids
+    return_url = request.data.get("return_url")
 
     tx_ref = str(uuid.uuid4())
     user = request.user
 
-    amount = None
     subscription = None
+    amount = None
     start_date = timezone.now()
     end_date = None
+
     if not return_url:
         return_url = DEFAULT_RETURN_URL
-    # Case 1: Existing subscription plan
+
+    # -----------------------
+    # Case 1: Subscription plan
+    # -----------------------
     if subscription_id:
         try:
             subscription = SubscriptionPlan.objects.get(id=subscription_id, is_active=True)
@@ -114,12 +117,12 @@ def initialize_payment(request):
             return Response({"error": "Invalid subscription plan"}, status=status.HTTP_400_BAD_REQUEST)
 
         amount = subscription.price
-        if subscription.duration and subscription.period_type == "monthly":
-            end_date = start_date + timedelta(days=30 * subscription.duration)
-        elif subscription.duration and subscription.period_type == "yearly":
-            end_date = start_date + timedelta(days=365 * subscription.duration)
+        duration = subscription.duration
+        period_type = subscription.period_type
 
-    # Case 2: Custom subscription (duration + grades + period_type)
+    # -----------------------
+    # Case 2: Custom plan
+    # -----------------------
     else:
         if not duration or not period_type or not grades:
             return Response(
@@ -127,76 +130,92 @@ def initialize_payment(request):
                 status=status.HTTP_400_BAD_REQUEST
             )
 
-        # ensure duration is an int
         try:
             duration = int(duration)
         except ValueError:
             return Response({"error": "Duration must be an integer"}, status=status.HTTP_400_BAD_REQUEST)
 
-        total_price = Decimal('0.00')
-        grade_prices = []
-
-        # if duration is more than 12 months, automatically treat as yearly
         if duration > 12:
             period_type = "yearly"
 
         grade_objs = Grade.objects.filter(id__in=grades)
+        if not grade_objs.exists() or grade_objs.count() != len(grades):
+            return Response({"error": "Invalid grades provided"}, status=status.HTTP_400_BAD_REQUEST)
 
-        if not grade_objs.exists():
-            return Response(
-                {"error": "Invalid grades provided"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # ensure all provided grade IDs exist
-        if grade_objs.count() != len(grades):
-            missing = set(grades) - set(grade_objs.values_list("id", flat=True))
-            return Response(
-                {"error": f"Some grades were not found: {list(missing)}"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
+        total_price = Decimal("0.00")
         for grade in grade_objs:
             try:
-                pricing = SubscriptionPlanPricing.objects.get(
-                    grade=grade,
-                    period_type=period_type
-                )
+                pricing = SubscriptionPlanPricing.objects.get(grade=grade, period_type=period_type)
             except SubscriptionPlanPricing.DoesNotExist:
                 return Response(
                     {"error": f"No pricing for grade {grade.name} and {period_type}"},
                     status=status.HTTP_404_NOT_FOUND
                 )
-
-            # base price per grade
             total_price_grade = pricing.price * Decimal(duration)
-
-            # calculate discount amount
-            discount_amount = total_price_grade * (pricing.discount / Decimal('100'))
-            total_price_grade -= discount_amount
-            total_price += total_price_grade
-
-            grade_prices.append({
-                "grade_id": grade.id,
-                "base_price": float(pricing.price),
-                "discount": float(pricing.discount),
-                "discounted_price_per_period": float(discount_amount),
-                "total_price_for_duration": float(total_price_grade)
-            })
+            discount_amount = total_price_grade * (pricing.discount / Decimal("100"))
+            total_price += total_price_grade - discount_amount
 
         amount = round(float(total_price), 2)
 
-        # Calculate end_date
-        if period_type == "monthly":
-            end_date = start_date + timedelta(days=30 * duration)
-        elif period_type == "yearly":
-            end_date = start_date + timedelta(days=365 * duration)
+    # -----------------------
+    # Decide start_date / status
+    # -----------------------
+    last_active = Payment.objects.filter(
+        user=user,
+        status="active",
+        payment_status="completed",
+        end_date__gt=timezone.now()
+    ).order_by("-end_date").first()
+
+    last_pending = Payment.objects.filter(
+        user=user,
+        status="pending",
+        payment_status="pending"
+    ).order_by("-created_at").first()
+
+    if last_active:
+        # User has an active subscription → queue
+        start_date = last_active.end_date + timedelta(seconds=1)
+        status_value = "pending"
+        payment_status_value = "pending"
+
+    elif last_pending:
+        # User has pending → use last paid active subscription’s expiry
+        last_paid = Payment.objects.filter(
+            user=user,
+            status="active",
+            payment_status="completed",
+            end_date__gt=timezone.now()
+        ).order_by("-end_date").first()
+
+        if last_paid:
+            start_date = last_paid.end_date + timedelta(seconds=1)
+            status_value = "pending"
         else:
-            return Response(
-                {"error": "Invalid period type"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-    # Create pending payment
+            start_date = timezone.now()
+            status_value = "active"
+
+        payment_status_value = "pending"
+
+    else:
+        # First-time subscription → active now
+        start_date = timezone.now()
+        status_value = "active"
+        payment_status_value = "pending"
+
+    # -----------------------
+    # Calculate end_date
+    # -----------------------
+    if period_type == "monthly":
+        end_date = start_date + timedelta(days=30 * int(duration))
+    elif period_type == "yearly":
+        end_date = start_date + timedelta(days=365 * int(duration))
+    else:
+        return Response({"error": "Invalid period type"}, status=status.HTTP_400_BAD_REQUEST)
+
+    # -----------------------
+    # Create Payment
+    # -----------------------
     payment = Payment.objects.create(
         user=user,
         subscription_plan=subscription,
@@ -204,13 +223,17 @@ def initialize_payment(request):
         chapa_tx_ref=tx_ref,
         start_date=start_date,
         end_date=end_date,
-        period_type=period_type
+        period_type=period_type,
+        status=status_value,
+        payment_status=payment_status_value
     )
 
-    if not subscription and grades:  # attach grades if custom
+    if not subscription and grades:
         payment.grade.set(grades)
 
+    # -----------------------
     # Call Chapa API
+    # -----------------------
     payload = {
         "amount": str(amount),
         "currency": "ETB",
@@ -218,13 +241,12 @@ def initialize_payment(request):
         "first_name": user.first_name or "Customer",
         "last_name": user.last_name or "",
         "tx_ref": tx_ref,
-        "return_url": return_url    }
-
+        "return_url": return_url,
+    }
     headers = {
         "Authorization": f"Bearer {CHAPA_API_KEY}",
         "Content-Type": "application/json",
     }
-
 
     chapa_response = requests.post(CHAPA_INIT_URL, json=payload, headers=headers).json()
 
@@ -234,11 +256,7 @@ def initialize_payment(request):
             "tx_ref": tx_ref
         }, status=status.HTTP_200_OK)
 
-    error_message = "Failed to initialize payment"
-    return Response(
-        {"error": error_message},  # include raw for debugging if needed
-        status=status.HTTP_400_BAD_REQUEST
-    )
+    return Response({"error": "Failed to initialize payment"}, status=status.HTTP_400_BAD_REQUEST)
 
 
 CHAPA_WEBHOOK_SECRET = settings.CHAPA_WEBHOOK_SECRET  # store in .env
@@ -284,13 +302,31 @@ def chapa_webhook(request):
         return Response({"error": "Payment not found"}, status=status.HTTP_404_NOT_FOUND)
 
     if event_ == "charge.success" or event_ == "payout.success":
-        payment.status = "completed"
+        payment.payment_status = "completed"
         # TODO: activate subscription here
     else:
-        payment.status = "failed"
+        payment.payment_status = "failed"
 
     payment.save()
     return Response({"message": "Webhook processed"}, status=status.HTTP_200_OK)
 
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def get_active_subscriptions(request):
+    """
+    Return all subscriptions of the authenticated user
+    which are paid (payment_status=completed) and not expired.
+    """
+    user = request.user
+    now = timezone.now()
+
+    subscriptions = Payment.objects.filter(
+        user=user,
+        payment_status="completed",
+        end_date__gte=now
+    ).order_by("start_date")
+
+    serializer = PaymentSerializer(subscriptions, many=True)
+    return Response(serializer.data)
 
 

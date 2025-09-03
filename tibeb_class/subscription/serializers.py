@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from contents.models import  Grade
-from .models import SubscriptionPlan, SubscriptionPlanPricing
+from .models import Payment, SubscriptionPlan, SubscriptionPlanPricing
 
 class GradeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -36,3 +36,28 @@ class PaymentInitSerializer(serializers.Serializer):
         data['subscription'] = subscription
         data['pricing'] = pricing
         return data
+    
+class PaymentSerializer(serializers.ModelSerializer):
+    subscription_plan_name = serializers.CharField(source="subscription_plan.name", read_only=True)
+    grade_names = serializers.SlugRelatedField(
+        many=True, slug_field="name", read_only=True, source="grade"
+    )
+
+    class Meta:
+        model = Payment
+        fields = [
+            "id",
+            "subscription_plan",
+            "subscription_plan_name",
+            "grade",
+            "grade_names",
+            "amount",
+            "status",
+            "payment_status",
+            "start_date",
+            "end_date",
+            "period_type",
+            "chapa_tx_ref",
+            "created_at",
+            "updated_at",
+        ]
