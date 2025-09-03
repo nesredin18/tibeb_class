@@ -118,6 +118,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTH_USER_MODEL = 'user.CustomUser'
+CHAPA_API_KEY ='CHASECK_TEST-dclCApwJ3rgnUr8BWje3efcVxFXaQPmG'
+CHAPA_INIT_URL = 'https://api.chapa.co/v1/transaction/initialize'
+CHAPA_CALLBACK_URL = 'https://yourdomain.com/api/payments/webhook/'
+DEFAULT_RETURN_URL = 'http://localhost:5173/'
+CHAPA_WEBHOOK_SECRET = 'your_webhook_secret'
 
 
 # Internationalization

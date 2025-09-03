@@ -1,6 +1,7 @@
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+from django.conf import settings
 
 # Create your models here.
 class SubscriptionPlan(models.Model):
@@ -46,6 +47,35 @@ class SubscriptionPlanPricing(models.Model):
 
     def __str__(self):
         return f"{self.grade.name} - {self.period_type}"
+    
+class Payment(models.Model):
+    STATUS_CHOICES = (
+        ('pending', 'Pending'),
+        ('completed', 'Completed'),
+        ('failed', 'Failed'),
+    )
+
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    subscription_plan = models.ForeignKey(
+        SubscriptionPlan,
+        on_delete=models.CASCADE,
+        null=True, blank=True
+    )
+    grade = models.ManyToManyField('contents.Grade', blank=True)
+    amount = models.DecimalField(max_digits=10, decimal_places=2)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pending')
+    chapa_tx_ref = models.CharField(max_length=100, blank=True, null=True, unique=True)
+
+    # New fields
+    start_date = models.DateTimeField(default=timezone.now)
+    end_date = models.DateTimeField(blank=True, null=True)
+    period_type = models.CharField(max_length=100,blank=True,null=True)
+
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    def __str__(self):
+        return f"{self.user} - {self.amount} ETB - {self.status}"
     
 
 
