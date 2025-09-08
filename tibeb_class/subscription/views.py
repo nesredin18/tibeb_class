@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from contents.models import Grade
+from user.models import CustomUser, ParentChild
 from .models import Payment, SubscriptionPlan,SubscriptionPlanPricing
 from .serializers import PaymentInitSerializer, PaymentSerializer, SubscriptionPlanSerializer
 from rest_framework import status
@@ -91,13 +92,14 @@ DEFAULT_RETURN_URL = settings.DEFAULT_RETURN_URL
 @permission_classes([IsAuthenticated])
 def initialize_payment(request):
     subscription_id = request.data.get("subscription_id")
+    for_whom = request.data.get("for_whom")
+    other_email = request.data.get("other_email")
     duration = request.data.get("duration")
     period_type = request.data.get("period_type")
     grades = request.data.get("grades", [])
     return_url = request.data.get("return_url")
 
     tx_ref = str(uuid.uuid4())
-    user = request.user
 
     subscription = None
     amount = None
@@ -106,7 +108,17 @@ def initialize_payment(request):
 
     if not return_url:
         return_url = DEFAULT_RETURN_URL
-
+    if for_whom == "self":
+        user = request.user
+    elif for_whom == "other":
+        if not other_email:
+            return Response({'error': 'other_email is required when for_whom is "other"'}, status=400)
+        try:
+            user = CustomUser.objects.get(email=other_email)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'User not found.'}, status=404)
+    else:
+        return Response({'error': 'Invalid for_whom value.'}, status=400)
     # -----------------------
     # Case 1: Subscription plan
     # -----------------------
@@ -218,6 +230,7 @@ def initialize_payment(request):
     # -----------------------
     payment = Payment.objects.create(
         user=user,
+        gift_from=request.user if for_whom=="other" else None,
         subscription_plan=subscription,
         amount=amount,
         chapa_tx_ref=tx_ref,
@@ -318,8 +331,30 @@ def get_active_subscriptions(request):
     which are paid (payment_status=completed) and not expired.
     """
     user = request.user
-    now = timezone.now()
+    child_id = request.query_params.get('child_id')
 
+    # If child_id is provided, validate parent-child relationship
+    if child_id:
+        try:
+            child_id = int(child_id)
+        except ValueError:
+            return Response({'error': 'Invalid child_id.'}, status=400)
+
+        is_valid_relation = ParentChild.objects.filter(
+            parent=user,
+            child_id=child_id,
+            status='active'
+        ).exists()
+
+        if not is_valid_relation:
+            return Response({'error': 'You are not authorized to access this child\'s data.'}, status=403)
+
+        # If valid, use the child as the target user
+        try:
+            user = CustomUser.objects.get(id=child_id)
+        except CustomUser.DoesNotExist:
+            return Response({'error': 'Child user not found.'}, status=404)    
+    now = timezone.now()
     subscriptions = Payment.objects.filter(
         user=user,
         payment_status="completed",

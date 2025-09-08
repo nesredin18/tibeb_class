@@ -61,6 +61,8 @@ class Payment(models.Model):
     )
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    gift_from = models.ForeignKey( settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='gift_payments')
+
     subscription_plan = models.ForeignKey(
         SubscriptionPlan,
         on_delete=models.CASCADE,
