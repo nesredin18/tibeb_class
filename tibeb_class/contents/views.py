@@ -5,6 +5,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
 
+from subscription.models import Payment
 from user.models import ExerciseProgress, QuestionProgress
 from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
 from .serializers import GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer
@@ -13,6 +14,7 @@ from fuzzywuzzy import fuzz
 from .models import Question, Option
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated
+from django.utils import timezone
 
 
 
@@ -170,6 +172,17 @@ def get_videos(request):
     serializer = VideoSerializer(videos, many=True)
     return Response(serializer.data)
 
+def user_has_valid_subscription_for_grade(user, grade):
+    """
+    Helper function to check if the user has a valid, non-expired, paid subscription for the given grade.
+    """
+    return Payment.objects.filter(
+        user=user,
+        status='active',
+        payment_status='completed',  # Payment must be completed
+        grade=grade,
+        end_date__gt=timezone.now()  # Ensure the subscription is not expired
+    ).exists()
 
 @api_view(['GET'])
 def get_content_by_type_and_level(request):
@@ -211,9 +224,31 @@ def get_content_by_type_and_level(request):
 
     # Make sure to eliminate duplicates (especially for M2M like grades)
     contents = contents.distinct()
+    if any(content.ispaid == 'ispaid' for content in contents):  # Assuming the content has been fetched
+        user = request.user
+        if not user.is_authenticated:
+            return Response({'error': 'Authentication required to access paid content.'}, status=401)
+        
+        # Check if user has valid subscription for at least one of the grades associated with the content
+        grade = None
+        if level == 'grade':
+            grade = Grade.objects.get(id=parent_id)
+        elif level == 'subject':
+            subject = Subject.objects.get(id=parent_id)
+            grade = subject.grade  # Get grade from related subject
+        elif level == 'chapter':
+            chapter = Chapter.objects.get(id=parent_id)
+            grade = chapter.subject.grade  # Get grade from related subject
+        elif level == 'subsection':
+            subsection = Subsection.objects.get(id=parent_id)
+            grade = subsection.chapter.subject.grade    
+        if not grade:
+            return Response({'error': 'Invalid level. Grade not found for the given content.'}, status=400)
 
+        # Now check if the user has a valid subscription for the extracted grade
+        if not user_has_valid_subscription_for_grade(request.user, grade):
+            return Response({'error': 'You do not have an active, valid subscription for this grade.'}, status=403)
     data = serializer_class(contents, many=True).data
-
     return Response({
         'level': level,
         'id': parent_id,

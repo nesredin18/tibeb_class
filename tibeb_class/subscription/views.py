@@ -243,6 +243,8 @@ def initialize_payment(request):
 
     if not subscription and grades:
         payment.grade.set(grades)
+    elif subscription and subscription.grades.exists():
+        payment.grade.set(subscription.grades.all())
 
     # -----------------------
     # Call Chapa API
