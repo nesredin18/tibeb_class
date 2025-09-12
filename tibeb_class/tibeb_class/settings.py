@@ -151,6 +151,10 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
+AFROMESSAGE_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoiTW9pZ1NEZTljM2p3blpnRm43ZlhqNFF2ejZaTlBPUTMiLCJleHAiOjE5MTUzODEzNTksImlhdCI6MTc1NzYxNDk1OSwianRpIjoiMWUyMWViNjEtYzViOS00NzA2LThkYTUtZThiODJiOGE1YzZkIn0.Dq2sYpMl7gjj_S7ywSLHX-er6Ckpnq9VMybCswJVtTc"
+AFROMESSAGE_FROM = "e80ad9d8-adf3-463f-80f4-7c4b39f7f164"
+AFROMESSAGE_SENDER = "YOUR_SENDER_NAME"
+AFROMESSAGE_CALLBACK = "YOUR_CALLBACK"
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -172,5 +176,7 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+
 
 

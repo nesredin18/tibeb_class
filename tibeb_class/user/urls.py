@@ -1,12 +1,12 @@
 from django.urls import path
-from .views import change_password, reset_password, send_password_reset_email, signup, login, test, verify_email
+from .views import change_password, reset_password, send_password_reset_code, signup, login, test,verify_username
 from .views import get_user_info, get_pending_requests, get_accepted_requests
 from .views import create_user_subscription, get_active_subscription,aggregated_progress_chapter_level
 from .views import start_grade,user_grade,aggregated_progress_per_grade,aggregated_progress_chapter_level,aggregated_progress_subject_level,aggregated_progress_subsection_level
 from .views import update_user,get_user_info, add_child_account, respond_to_parent_request
 from .views import get_parent_childs,get_child_requests,cancel_child_request,unlink_child
-from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_email,update_email_and_send_verification
-from .views import reset_question_progress_for_exercise
+from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_code,update_email_and_send_verification
+from .views import reset_question_progress_for_exercise,verify_password_reset_code
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -15,11 +15,12 @@ from rest_framework_simplejwt.views import (
 urlpatterns = [
     path('token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),         # refresh
     path('signup/', signup, name='signup'),
-    path('verify-email/<uidb64>/<token>/', verify_email, name='verify-email'),
-    path('send-password-reset/', send_password_reset_email, name='password-reset-email'),
+    path('verify-username/', verify_username, name='verify-username'),
+    path('verify-password/', verify_password_reset_code, name='verify-password'),
+    path('send-password-reset/', send_password_reset_code, name='password-reset-email'),
     path('reset-password/<uidb64>/<token>/', reset_password, name='reset-password'),
     path('change-password/', change_password, name='change-password'),
-    path('resend-varification/', resend_verification_email, name='resend-varification'),
+    path('resend-varification/', resend_verification_code, name='resend-varification'),
     path('update-email/', update_email_and_send_verification, name='update_email_and_send_verification'),
     path('reset-exercise/', reset_question_progress_for_exercise, name='reset_question_progress_for_exercise'),
     path('update/', update_user, name='update-user'),

@@ -2,22 +2,53 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.utils import timezone
 from datetime import timedelta
+import random
+
 
 class CustomUser(AbstractUser):
     ROLE_CHOICES = (
         ('student', 'Student'),
         ('parent', 'Parent'),
     )
+    UserName_Type = (
+        ('email', 'Email'),
+        ('phone', 'Phone'),
+    )
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
     grades = models.ManyToManyField('contents.Grade', related_name='users', blank=True)
-    phone_number = models.CharField(max_length=15, blank=True, null=True)
     is_verified = models.BooleanField(default=False)  # Add this line
     last_email_change = models.DateTimeField(null=True, blank=True, default=timezone.now)
-
-
+    username_type = models.CharField(max_length=10, choices=UserName_Type, default='email')
 
     def __str__(self):
         return self.username
+class PhoneOTP(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6, default='', blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def save(self, *args, **kwargs):
+        if not self.otp:
+            self.otp = str(random.randint(100000, 999999))
+        super().save(*args, **kwargs)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=20)
+    
+class PasswordResetOTP(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=20)
+
+    def save(self, *args, **kwargs):
+        if not self.otp:
+            self.otp = str(random.randint(100000, 999999))
+        super().save(*args, **kwargs)
 class ParentChild(models.Model):
     parent = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='children')
     child = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='parents')

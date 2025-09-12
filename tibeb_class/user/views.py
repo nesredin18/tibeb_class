@@ -1,4 +1,6 @@
 from decimal import Decimal
+from functools import cache
+import uuid
 from django.db import IntegrityError
 from django.utils import timezone
 from rest_framework.decorators import api_view, authentication_classes, permission_classes
@@ -6,10 +8,13 @@ from rest_framework.authentication import SessionAuthentication, TokenAuthentica
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
+
+from tibeb_class.sms_templates import SMSTemplateHelper
+from user.utils import send_sms_otp
 from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
-from .models import BookProgress, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
+from .models import BookProgress, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, PasswordResetOTP, PhoneOTP, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
 from contents.models import Book, Exercise, Option, Question, Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
@@ -29,6 +34,8 @@ from tibeb_class.email_templates import EmailTemplateHelper
 from django.utils.html import strip_tags
 from django.core.mail import EmailMultiAlternatives
 import re
+from django.core.validators import validate_email
+from django.core.exceptions import ValidationError
 
 
 
@@ -40,7 +47,7 @@ User = get_user_model()
 # Create your views here.
 @api_view(['POST'])
 def login(request):
-    username = request.data.get('email')  # you're using 'email' as username
+    username = request.data.get('username')  # you're using 'email' as username
     password = request.data.get('password')
     remember_me = request.data.get('remember_me', False)
 
@@ -78,7 +85,39 @@ def is_strong_password(password):
 @api_view(['POST'])
 def signup(request):
     data = request.data.copy()
-    data['username'] = data.get('email')
+    email = data.get('email')
+    phone = data.get('phone_number')
+
+    if not email and not phone:
+        return Response({'error': 'Either email or phone number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if email and phone:
+        return Response(
+            {'error': 'Provide only one: email or phone number, not both.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if phone:
+        phone_pattern = re.compile(r"^09\d{8}$")
+        if not phone_pattern.match(phone):
+            return Response(
+                {'error': 'Invalid phone number. Must be 10 digits and start with 09 (e.g. 0932808120).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {'error': 'Invalid email address.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    if email:
+        data['username'] = email
+        data['username_type'] = 'email'
+    elif phone:  
+        data['username'] = phone 
+        data['username_type'] = 'phone'
     if not is_strong_password(data.get('password')):
         return Response({'password': [
             "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
@@ -101,97 +140,119 @@ def signup(request):
         for grade in grades:
             User_Grade.objects.create(user=user, grade=grade)
 
-        # ✅ Generate JWT tokens
-        refresh = RefreshToken.for_user(user)
-        access_token = str(refresh.access_token)
-        refresh_token = str(refresh)
 
-        return Response({
-            'token': access_token,
-            'refresh': refresh_token,
-            'user': serializer.data
-        }, status=status.HTTP_201_CREATED)
+        return Response({'message': 'User Created Succesfully'}, status=status.HTTP_200_OK)
 
     # Handle username -> email error
     errors = dict(serializer.errors)
-    if 'username' in errors:
-        errors['email'] = [
-            "A user with that email already exists."
-            if "already exists" in str(e) else str(e)
-            for e in errors.pop('username')
-        ]
 
     return Response(errors, status=status.HTTP_400_BAD_REQUEST)
 
-@api_view(['GET'])
-def verify_email(request, uidb64, token):
-    try:
-        uid = urlsafe_base64_decode(uidb64).decode()
-        user = User.objects.get(pk=uid)
-    except (User.DoesNotExist, ValueError, TypeError):
-        return Response({'error': 'Invalid verification link.'}, status=status.HTTP_400_BAD_REQUEST)
+@api_view(['POST'])
+def verify_username(request):
+    username = request.data.get('username')
+    code = request.data.get('code')
+    if not username or not code:
+        return Response({'error': 'Username and code are required.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    if default_token_generator.check_token(user, token):
-        if not user.is_verified:
-            user.is_verified = True
-            user.save(update_fields=["is_verified"])
-        return Response({'message': 'Email successfully verified.'}, status=status.HTTP_200_OK)
-    else:
-        return Response({'error': 'Verification link is invalid or expired.'}, status=status.HTTP_400_BAD_REQUEST)
+    try:
+        otp_obj = PhoneOTP.objects.get(user__username=username, otp=code, is_used=False)
+    except PhoneOTP.DoesNotExist:
+        return Response({'error': 'Invalid or expired OTP.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    # Mark OTP as used
+    otp_obj.is_used = True
+    otp_obj.save()
+
+    # Verify user
+    user = otp_obj.user
+    user.is_verified = True
+    user.save()
+
+    return Response({
+        'message': 'username verified successfully.',
+    }, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def resend_verification_email(request):
-    user = request.user
-
+def resend_verification_code(request):
+    username = request.data.get('username')
+    user = CustomUser.objects.get(username=username)
+    if not user:
+        return Response({'error': 'User not found.'}, status=404)
     if user.is_verified:  # Assuming you have a boolean field `is_verified` on your CustomUser model
         return Response({'message': 'User is already verified.'}, status=status.HTTP_400_BAD_REQUEST)
 
-    uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    domain = settings.FRONTEND_URL  # e.g., from settings.FRONTEND_URL
+    if user.username_type == 'email':
+        otp_obj = PhoneOTP.objects.create(user=user)
+        html = EmailTemplateHelper.verify_email_html(otp_obj.otp)
+        text = strip_tags(html)
+        msg = EmailMultiAlternatives(
+            subject="Verify Your Email",
+            body=text,  # plain-text
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.username], 
+        )
+        msg.attach_alternative(html, "text/html")
+        msg.send(fail_silently=True)
+    elif user.username_type == 'phone':
+        otp_obj = PhoneOTP.objects.create(user=user)
+        send_sms_otp(user.username, otp_obj.otp)
 
-    verification_link = f"{domain}/verify-email/{uid}/{token}/"
-
-    # Optional: you can import and use the `render_verification_email_html` you created before
-    html = EmailTemplateHelper.verify_email_html(verification_link)
-    text = strip_tags(html)
-    msg = EmailMultiAlternatives(
-        subject="Verify Your Email",
-        body=text,  # plain-text
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        to=[user.email],
-    )
-    msg.attach_alternative(html, "text/html")
-    msg.send(fail_silently=True)
-
-    return Response({'message': 'Verification email resent.'}, status=status.HTTP_200_OK)
+    return Response({'message': 'Verification code resent.'}, status=status.HTTP_200_OK)
 @api_view(['POST'])
-def send_password_reset_email(request):
-    email = request.data.get('email')
-    if not email:
-        return Response({'error': 'Email is required'}, status=status.HTTP_400_BAD_REQUEST)
+def send_password_reset_code(request):
+    username = request.data.get('username')
+    user = CustomUser.objects.get(username=username)
 
-    try:
-        user = User.objects.get(email=email)
-        uid = urlsafe_base64_encode(force_bytes(user.pk))
-        token = default_token_generator.make_token(user)
-        domain =settings.FRONTEND_URL  # Replace with your actual domain
-
-        reset_link = f"{domain}/reset-password/{uid}/{token}/"
-        html = EmailTemplateHelper.forgot_password_html(reset_link)
+    if not user:
+        return Response({'error': 'User not found.'}, status=404)
+    if user.username_type == 'email':
+        otp_obj = PasswordResetOTP.objects.create(user=user)
+        html = EmailTemplateHelper.forgot_password_html(otp_obj.otp)
         text = strip_tags(html)
         msg = EmailMultiAlternatives(
             subject="Password Reset Request",
             body=text,  # plain-text
             from_email=settings.DEFAULT_FROM_EMAIL,
-            to=[user.email],
+            to=[user.username], 
         )
         msg.attach_alternative(html, "text/html")
         msg.send(fail_silently=True)
-        return Response({'message': 'Password reset link sent successfully.'}, status=status.HTTP_200_OK)
-    except User.DoesNotExist:
-        return Response({'error': 'User with this email does not exist.'}, status=status.HTTP_404_NOT_FOUND)
+    elif user.username_type == 'phone':
+        otp_obj = PasswordResetOTP.objects.create(user=user)
+        msg = SMSTemplateHelper.password_reset_otp(otp_obj.otp)
+        send_sms_otp(user.username, msg)
+
+    return Response({'message': 'Password reset code sent successfully.'}, status=status.HTTP_200_OK)
+@api_view(['POST'])
+def verify_password_reset_code(request):
+    username = request.data.get("username")
+    code = request.data.get("code")
+    if not username or not code:
+        return Response({"error": "Username and code are required."}, status=400)
+
+    try:
+        user = CustomUser.objects.get(username=username) 
+        otp_obj = PasswordResetOTP.objects.filter(user=user, otp=code, is_used=False).last()
+    except CustomUser.DoesNotExist:
+        return Response({"error": "Invalid user"}, status=400)
+
+    if not otp_obj or otp_obj.is_expired():
+        return Response({"error": "Code expired or invalid"}, status=400)
+
+    # Mark OTP as used
+    otp_obj.is_used = True
+    otp_obj.save()
+
+    # ✅ Generate Django password reset token instead of uuid
+    uid = urlsafe_base64_encode(force_bytes(user.pk))
+    token = default_token_generator.make_token(user)
+
+    return Response({
+        "message": "Code verified",
+        "uid": uid,
+        "token": token
+    }, status=200)
 
 @api_view(['POST'])
 def reset_password(request, uidb64, token):

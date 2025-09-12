@@ -114,7 +114,7 @@ def initialize_payment(request):
         if not other_email:
             return Response({'error': 'other_email is required when for_whom is "other"'}, status=400)
         try:
-            user = CustomUser.objects.get(email=other_email)
+            user = CustomUser.objects.get(username=other_email)
         except CustomUser.DoesNotExist:
             return Response({'error': 'User not found.'}, status=404)
     else:

@@ -32,23 +32,17 @@ class EmailTemplateHelper:
 </h1>
 
 <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
-  Thanks for signing up! Please confirm your email by clicking the button below.
+  Thanks for signing up! This is the confirmation code .
 </p>
-
 <div style="text-align:center;margin:24px 0 32px;">
-  <a href="{verification_link}"
-     style="background-color:#0C3F87;color:#FFFFFF;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:14px;display:inline-block;">
-    Verify Email
-  </a>
+  <p style="background-color:#0C3F87;color:#FFFFFF;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:14px;display:inline-block;">
+    {verification_link}
+  </p>
 </div>
 
-<p style="color:#6b7280;font-size:12px;margin:0 0 16px;">
-  If the button doesn’t work, copy and paste this link into your browser:<br>
-  <span style="word-break:break-all;color:#1f2937;">{verification_link}</span>
-</p>
 
 <p style="color:#6b7280;font-size:12px;margin:0;">
-  This link will expire soon. If it expires, you can request a new one from the sign-in page.
+  This code will expire soon. If it expires, you can request a new one from the sign-in page.
 </p>
 """
         shell = f"""
@@ -65,7 +59,7 @@ class EmailTemplateHelper:
         return shell
     
     @staticmethod
-    def forgot_password_html(reset_link: str) -> str:
+    def forgot_password_html(otp) -> str:
         header = EmailTemplateHelper._header()
         footer = EmailTemplateHelper._footer()
         content = f"""
@@ -74,20 +68,15 @@ class EmailTemplateHelper:
     </h1>
 
     <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
-    We received a request to reset your password. Click the button below to choose a new one.
+    We received a request to reset your password. Use the code below to reset your password.
     </p>
 
     <div style="text-align:center;margin:24px 0 32px;">
-    <a href="{reset_link}"
+    <p
         style="background-color:#0C3F87;color:#FFFFFF;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:14px;display:inline-block;">
-        Reset Password
-    </a>
+{otp}
+            </p>
     </div>
-
-    <p style="color:#6b7280;font-size:12px;margin:0 0 16px;">
-    If the button doesn’t work, copy and paste this link into your browser:<br>
-    <span style="word-break:break-all;color:#1f2937;">{reset_link}</span>
-    </p>
 
     <p style="color:#6b7280;font-size:12px;margin:0;">
     If you didn’t request a password reset, you can safely ignore this email.
