@@ -165,7 +165,7 @@ EMAIL_PORT = 587
 EMAIL_USE_TLS = True
 EMAIL_HOST_USER = 'tibebclass@gmail.com'
 EMAIL_HOST_PASSWORD = 'ourc vyel vmec oios'
-DEFAULT_FROM_EMAIL = 'tibebclass@gmail.com'
+DEFAULT_FROM_EMAIL = "Tibeb Class <tibebclass@gmail.com>"
 
 FRONTEND_URL = "http://localhost:5173"
 BACKEND_URL=  "http://127.0.0.1:8000"

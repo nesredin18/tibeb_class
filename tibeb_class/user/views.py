@@ -15,7 +15,7 @@ from user.utils import send_sms_otp
 from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
-from .models import BookProgress, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, PasswordResetOTP, PhoneOTP, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
+from .models import BookProgress, ChangeUserNameOTP, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, PasswordResetOTP, PhoneOTP, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
 from contents.models import Book, Exercise, Option, Question, Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
@@ -309,48 +309,134 @@ def change_password(request):
     user.save()
     return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)
 
+
 @api_view(['POST'])
-@permission_classes([IsAuthenticated, IsVerified])
-def update_email_and_send_verification(request):
-    new_email = request.data.get('email')
-
-    if not new_email:
-        return Response({'error': 'Email is required.'}, status=400)
-
+@permission_classes([IsAuthenticated,IsVerified])
+def request_username_change(request):
     user = request.user
     if user.last_email_change and timezone.now() - user.last_email_change < timedelta(days=30):
         return Response(
             {'error': 'You can only change your email once every 30 days.'},
             status=400
         )
-    user.email = new_email
-    user.username=new_email
-    user.is_verified = False
+    data = request.data.copy()
+    email = data.get('email')
+    phone = data.get('phone_number')
+
+    if not email and not phone:
+        return Response({'error': 'Either email or phone number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+    if email and phone:
+        return Response(
+            {'error': 'Provide only one: email or phone number, not both.'},
+            status=status.HTTP_400_BAD_REQUEST
+        )
+
+    if phone:
+        phone_pattern = re.compile(r"^09\d{8}$")
+        if not phone_pattern.match(phone):
+            return Response(
+                {'error': 'Invalid phone number. Must be 10 digits and start with 09 (e.g. 0932808120).'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+    if email:
+        try:
+            validate_email(email)
+        except ValidationError:
+            return Response(
+                {'error': 'Invalid email address.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+    if email:
+        new_username = email
+        username_type = 'email'
+    elif phone:  
+        new_username = phone 
+        username_type = 'phone'
+
+    # Check if already in use by a verified account
+    if CustomUser.objects.filter(username=new_username, is_verified=True).exists():
+        return Response({"error": "This username is already in use."}, status=400)
+
+    # Save pending change
+    user.pending_username = new_username
+    user.pending_username_type = username_type
+    user.save()
+
+    # Send verification
+    if username_type == 'email':
+        otp_obj = ChangeUserNameOTP.objects.create(user=user)
+        html = EmailTemplateHelper.change_username_html(otp_obj.otp)
+        text = strip_tags(html)
+        msg = EmailMultiAlternatives(
+            subject="Change Username Request",
+            body=text,  # plain-text
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[new_username], 
+        )
+        msg.attach_alternative(html, "text/html")
+        msg.send(fail_silently=True)
+    elif username_type == 'phone':
+        otp_obj = ChangeUserNameOTP.objects.create(user=user)
+        msg = SMSTemplateHelper.change_username_otp(otp_obj.otp)
+        send_sms_otp(new_username, msg)
+    return Response({'message': 'change username code sent successfully.'}, status=status.HTTP_200_OK)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated,IsVerified])
+def resend_request_username_change(request):
+    user = request.user
+    if user.last_email_change and timezone.now() - user.last_email_change < timedelta(days=30):
+        return Response(
+            {'error': 'You can only change your email once every 30 days.'},
+            status=400
+        )
+
+    # Send verification
+    if user.pending_username_type == 'email':
+        otp_obj = ChangeUserNameOTP.objects.create(user=user)
+        html = EmailTemplateHelper.change_username_html(otp_obj.otp)
+        text = strip_tags(html)
+        msg = EmailMultiAlternatives(
+            subject="Change Username Request",
+            body=text,  # plain-text
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[user.pending_username]
+        )
+        msg.attach_alternative(html, "text/html")
+        msg.send(fail_silently=True)
+    elif user.pending_username_type == 'phone':
+        otp_obj = ChangeUserNameOTP.objects.create(user=user)
+        msg = SMSTemplateHelper.change_username_otp(otp_obj.otp)
+        send_sms_otp(user.pending_username, msg)
+    return Response({'message': 'change username code sent successfully.'}, status=status.HTTP_200_OK)
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsVerified])
+def confirm_username_change(request):
+    user = request.user
+
+    if not user.pending_username:
+        return Response({"error": "No pending username change."}, status=400)
+
+    otp = request.data.get("otp")
+    if not otp:
+        return Response({"error": "OTP is required."}, status=400)
+    otp_obj = ChangeUserNameOTP.objects.filter(user=user, otp=otp, is_used=False).last()
+    if not otp_obj or otp_obj.is_expired():
+        return Response({"error": "Invalid or expired OTP."}, status=400)
+    existingUnverifiedUser = CustomUser.objects.filter(username=user.pending_username, is_verified=False).first()
+    if existingUnverifiedUser and existingUnverifiedUser != user:
+        existingUnverifiedUser.delete()
+    otp_obj.is_used = True
+    otp_obj.save()
+    user.username = user.pending_username
+    user.phone_number = user.pending_username
+    user.pending_username = None
+    user.pending_username_type = None
+    user.is_verified = True
     user.last_email_change = timezone.now()   # record timestamp
+    user.save()
+    return Response({"message": "Username updated.","username":user.username}, status=200)
 
-
-    try:
-        user.save()
-    except IntegrityError as e:
-        if "UNIQUE constraint failed" in str(e):
-            return Response({'error': 'Email already taken.'}, status=400)
-        return Response({'error': 'An unexpected error occurred.'}, status=500)
-
-    # Send new verification email
-    uid = urlsafe_base64_encode(force_bytes(user.pk))
-    token = default_token_generator.make_token(user)
-    domain = settings.FRONTEND_URL
-
-    verification_link = f"{domain}/verify-email/{uid}/{token}/"
-
-    send_mail(
-        subject='Verify Your New Email Address',
-        message=f'Click the link to verify your email: {verification_link}',
-        from_email=settings.DEFAULT_FROM_EMAIL,
-        recipient_list=[new_email],
-    )
-
-    return Response({'message': 'Email updated and verification sent.'}, status=200)
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated, IsVerified])
 def update_user(request):
@@ -412,8 +498,43 @@ def add_child_account(request):
             return Response({'error': 'Child data is required.'}, status=400)
 
         child_data['role'] = 'student'
-        child_data['username'] = child_data.get('email')
-        
+        email = child_data.get('email')
+        phone = child_data.get('phone_number')
+
+        if not email and not phone:
+            return Response({'error': 'Either email or phone number is required.'}, status=status.HTTP_400_BAD_REQUEST)
+        if email and phone:
+            return Response(
+                {'error': 'Provide only one: email or phone number, not both.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        if phone:
+            phone_pattern = re.compile(r"^09\d{8}$")
+            if not phone_pattern.match(phone):
+                return Response(
+                    {'error': 'Invalid phone number. Must be 10 digits and start with 09 (e.g. 0932808120).'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+
+        if email:
+            try:
+                validate_email(email)
+            except ValidationError:
+                return Response(
+                    {'error': 'Invalid email address.'},
+                    status=status.HTTP_400_BAD_REQUEST
+                )
+        if email:
+            child_data['username'] = email
+            child_data['username_type'] = 'email'
+        elif phone:  
+            child_data['username'] = phone 
+            child_data['username_type'] = 'phone'
+        if not is_strong_password(child_data.get('password')):
+            return Response({'password': [
+            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+        ]}, status=status.HTTP_400_BAD_REQUEST)        
         grade_ids = child_data.getlist('grades') if hasattr(child_data, 'getlist') else child_data.get('grades', [])
         if isinstance(grade_ids, str):
             grade_ids = [grade_ids]
@@ -449,12 +570,17 @@ def add_child_account(request):
         try:
             child_user = User.objects.get(username=username, role='student')
 
+            if child_user.is_verified == False:
+                return Response({'error': 'Cannot link to an unverified student account.'}, status=400)
+
             relation, created = ParentChild.objects.get_or_create(parent=parent, child=child_user)
 
             if not created:
                 # Relation already exists
-                if relation.status in ['active', 'pending']:
+                if relation.status in ['active']:
                     return Response({'error': f'Relation already exists with status: {relation.status}'}, status=400)
+                elif relation.status in [ 'pending']:
+                    return Response({'error': f'Request is already pending: {relation.status}'}, status=400)
                 else:
                     relation.status = 'pending'
                     relation.save()
@@ -582,7 +708,8 @@ def get_parent_childs(request):
             'child_email': r.child.username,
             'child_name':r.child.first_name + " " + r.child.last_name,
             'child_grade': r.child.grades.all().values_list('name', flat=True),
-            'status': r.status
+            'status': r.status,
+            'is_verified': r.child.is_verified
         }
         for r in pending_requests
     ]
@@ -720,77 +847,6 @@ def track_video_progress(request):
         'completed_percentage': round(completed_percentage, 2),
         'last_watched_at': progress.last_watched_at
     }, status=status.HTTP_200_OK)
-
-
-
-@api_view(['POST'])
-
-@permission_classes([IsAuthenticated, IsVerified])
-def create_user_subscription(request):
-    user = request.user
-    plan_id = request.data.get('subscription_plan_id')
-    grade_id = request.data.get('grade_id')
-
-    try:
-        plan = SubscriptionPlan.objects.get(id=plan_id)
-        grade = Grade.objects.get(id=grade_id)
-    except (SubscriptionPlan.DoesNotExist, Grade.DoesNotExist):
-        return Response({'error': 'Invalid plan or grade'}, status=404)
-
-    new_subscription = UserSubscription.objects.create(
-        user=user,
-        subscription_plan=plan,
-        grade=grade
-    )
-
-    return Response({
-        'message': 'Subscription created',
-        'start_date': new_subscription.start_date,
-        'end_date': new_subscription.end_date,
-        'grade': grade.name
-    }, status=201)
-@api_view(['GET'])
-
-@permission_classes([IsAuthenticated, IsVerified])
-def get_active_subscription(request):
-    user = request.user
-    today = timezone.now().date()
-    child_id = request.query_params.get('child_id')
-
-    # If child_id is provided, validate parent-child relationship
-    if child_id:
-        try:
-            child_id = int(child_id)
-        except ValueError:
-            return Response({'error': 'Invalid child_id.'}, status=400)
-
-        is_valid_relation = ParentChild.objects.filter(
-            parent=user,
-            child_id=child_id,
-            status='active'
-        ).exists()
-
-        if not is_valid_relation:
-            return Response({'error': 'You are not authorized to access this child\'s data.'}, status=403)
-
-        # If valid, use the child as the target user
-        try:
-            user = CustomUser.objects.get(id=child_id)
-        except CustomUser.DoesNotExist:
-            return Response({'error': 'Child user not found.'}, status=404)
-
-    active = UserSubscription.objects.filter(user=user, is_active=True, end_date__gte=today).first()
-
-    if not active:
-        return Response({'message': 'No active subscription'}, status=404)
-
-    return Response({
-        'plan': active.subscription_plan.name,
-        'grade': active.grade.name if active.grade else None,
-        'start_date': active.start_date,
-        'end_date': active.end_date
-    }, status=200)
-
 
 
 @api_view(['GET'])
@@ -1279,6 +1335,8 @@ def aggregated_progress_chapter_level_for_user(request):
         # If valid, use the child as the target user
         try:
             user = CustomUser.objects.get(id=child_id)
+            if user.is_verified == False:
+                return Response({'error': 'Child user is not verified.'}, status=400)
         except CustomUser.DoesNotExist:
             return Response({'error': 'Child user not found.'}, status=404)
         

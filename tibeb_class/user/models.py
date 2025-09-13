@@ -19,7 +19,8 @@ class CustomUser(AbstractUser):
     is_verified = models.BooleanField(default=False)  # Add this line
     last_email_change = models.DateTimeField(null=True, blank=True, default=timezone.now)
     username_type = models.CharField(max_length=10, choices=UserName_Type, default='email')
-
+    pending_username = models.CharField(max_length=255, blank=True, null=True)
+    pending_username_type = models.CharField(max_length=10, choices=UserName_Type, default='email',blank=True, null=True)
     def __str__(self):
         return self.username
 class PhoneOTP(models.Model):
@@ -37,6 +38,19 @@ class PhoneOTP(models.Model):
         return timezone.now() > self.created_at + timedelta(minutes=20)
     
 class PasswordResetOTP(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=20)
+
+    def save(self, *args, **kwargs):
+        if not self.otp:
+            self.otp = str(random.randint(100000, 999999))
+        super().save(*args, **kwargs)
+class ChangeUserNameOTP(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     otp = models.CharField(max_length=6)
     created_at = models.DateTimeField(auto_now_add=True)

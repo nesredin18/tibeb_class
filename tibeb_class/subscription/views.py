@@ -355,6 +355,8 @@ def get_active_subscriptions(request):
         # If valid, use the child as the target user
         try:
             user = CustomUser.objects.get(id=child_id)
+            if user.is_verified == False:
+                return Response({'error': 'Child user is not verified.'}, status=400)
         except CustomUser.DoesNotExist:
             return Response({'error': 'Child user not found.'}, status=404)    
     now = timezone.now()

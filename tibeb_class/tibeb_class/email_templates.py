@@ -94,4 +94,40 @@ class EmailTemplateHelper:
     </div>
     """
 
+    @staticmethod
+    def change_username_html(otp) -> str:
+        header = EmailTemplateHelper._header()
+        footer = EmailTemplateHelper._footer()
+        content = f"""
+    <h1 style="font-size:24px;text-align:center;font-weight:bold;color:#111827;margin:0 0 16px;">
+    Change Your Username
+    </h1>
+
+    <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
+    We received a request to change your username. Use the code below to change your username.
+    </p>
+
+    <div style="text-align:center;margin:24px 0 32px;">
+    <p
+        style="background-color:#0C3F87;color:#FFFFFF;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:14px;display:inline-block;">
+{otp}
+            </p>
+    </div>
+
+    <p style="color:#6b7280;font-size:12px;margin:0;">
+    If you didn't request a username change, you can safely ignore this email.
+    </p>
+    """
+        return f"""
+    <div style="font-family:'Roboto',Arial,sans-serif;background-color:#f9fafb;padding:0;margin:0;">
+    <div style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+        {header}
+        <div style="padding:32px 24px;max-width:600px;margin:0 auto;">
+        {content}
+        </div>
+        {footer}
+    </div>
+    </div>
+    """
+
 
