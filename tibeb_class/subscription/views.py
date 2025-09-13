@@ -4,6 +4,7 @@ from rest_framework.decorators import api_view
 from rest_framework.response import Response
 
 from contents.models import Grade
+from tibeb_class.permissions import IsVerified
 from user.models import CustomUser, ParentChild
 from .models import Payment, SubscriptionPlan,SubscriptionPlanPricing
 from .serializers import PaymentInitSerializer, PaymentSerializer, SubscriptionPlanSerializer
@@ -89,7 +90,7 @@ DEFAULT_RETURN_URL = settings.DEFAULT_RETURN_URL
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def initialize_payment(request):
     subscription_id = request.data.get("subscription_id")
     for_whom = request.data.get("for_whom")
@@ -326,7 +327,7 @@ def chapa_webhook(request):
     return Response({"message": "Webhook processed"}, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_active_subscriptions(request):
     """
     Return all subscriptions of the authenticated user

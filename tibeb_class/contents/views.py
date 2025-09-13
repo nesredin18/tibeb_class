@@ -6,6 +6,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from subscription.models import Payment
+from tibeb_class.permissions import IsVerified
 from user.models import ExerciseProgress, QuestionProgress
 from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
 from .serializers import GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer
@@ -377,7 +378,7 @@ def submit_answer(request):
     return Response(result, status=status.HTTP_200_OK)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_exercise_progress(request, exercise_id):
     user = request.user
 

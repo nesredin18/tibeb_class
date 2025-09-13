@@ -10,6 +10,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from tibeb_class.sms_templates import SMSTemplateHelper
+from tibeb_class.permissions import IsVerified
 from user.utils import send_sms_otp
 from .serializers import UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
@@ -55,6 +56,8 @@ def login(request):
 
     if user is None:
         return Response({'error': 'Invalid credentials'}, status=status.HTTP_400_BAD_REQUEST)
+    if not user.is_verified:
+        return Response({'error': 'Account not verified. Please verify your account.'}, status=status.HTTP_403_FORBIDDEN)
 
     # Create a refresh token
     refresh = RefreshToken.for_user(user)
@@ -202,7 +205,10 @@ def resend_verification_code(request):
 @api_view(['POST'])
 def send_password_reset_code(request):
     username = request.data.get('username')
-    user = CustomUser.objects.get(username=username)
+    try:
+        user = CustomUser.objects.get(username=username)
+    except CustomUser.DoesNotExist:
+        user = None
 
     if not user:
         return Response({'error': 'User not found.'}, status=404)
@@ -268,17 +274,19 @@ def reset_password(request, uidb64, token):
         uid = urlsafe_base64_decode(uidb64).decode()
         user = User.objects.get(pk=uid)
     except (User.DoesNotExist, ValueError, TypeError):
-        return Response({'error': 'Invalid link.'}, status=status.HTTP_400_BAD_REQUEST)
+        return Response({'error': 'Invalid code.'}, status=status.HTTP_400_BAD_REQUEST)
 
     if default_token_generator.check_token(user, token):
         user.set_password(password)
+        if not user.is_verified:
+            user.is_verified = True
         user.save()
         return Response({'message': 'Password has been reset successfully.'}, status=status.HTTP_200_OK)
     else:
         return Response({'error': 'Invalid or expired token.'}, status=status.HTTP_400_BAD_REQUEST)
     
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def change_password(request):
     user = request.user
     old_password = request.data.get('old_password')
@@ -302,7 +310,7 @@ def change_password(request):
     return Response({'message': 'Password changed successfully.'}, status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def update_email_and_send_verification(request):
     new_email = request.data.get('email')
 
@@ -344,7 +352,7 @@ def update_email_and_send_verification(request):
 
     return Response({'message': 'Email updated and verification sent.'}, status=200)
 @api_view(['PUT', 'PATCH'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def update_user(request):
     user = request.user
     data = request.data.copy()
@@ -383,13 +391,13 @@ def update_user(request):
 
 @api_view(['POST'])
 @authentication_classes([SessionAuthentication, TokenAuthentication])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def test(request):
         
         return Response("passed for {}".format(request.user.username), status=status.HTTP_200_OK)
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def add_child_account(request):
     parent = request.user
     if parent.role != 'parent':
@@ -464,7 +472,7 @@ def add_child_account(request):
 
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def respond_to_parent_request(request):
     if request.user.role != 'student':
         return Response({'error': 'Only students can respond to requests.'}, status=403)
@@ -487,7 +495,7 @@ def respond_to_parent_request(request):
     except ParentChild.DoesNotExist:
         return Response({'error': 'No such request found.'}, status=404)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def cancel_child_request(request):
     if request.user.role != 'parent':
         return Response({'error': 'Only parents can cancel child requests.'}, status=403)
@@ -505,7 +513,7 @@ def cancel_child_request(request):
     except ParentChild.DoesNotExist:
         return Response({'error': 'No such request found.'}, status=404)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def unlink_child(request):
     if request.user.role != 'parent':
         return Response({'error': 'Only parents can cancel unlink child.'}, status=403)
@@ -524,7 +532,7 @@ def unlink_child(request):
         return Response({'error': 'No such request found.'}, status=404)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_user_info(request):
     user = request.user
     return Response({
@@ -540,7 +548,7 @@ def get_user_info(request):
     }, status=200)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_pending_requests(request):
     if request.user.role != 'student':
         return Response({'error': 'Only students can view parent requests.'}, status=403)
@@ -560,7 +568,7 @@ def get_pending_requests(request):
     ]
     return Response(result, status=200)
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_parent_childs(request):
     if request.user.role != 'parent':
         return Response({'error': 'Only parents can view child requests.'}, status=403)
@@ -580,7 +588,7 @@ def get_parent_childs(request):
     ]
     return Response(result, status=200)
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_child_requests(request):
     if request.user.role != 'parent':
         return Response({'error': 'Only parents can view child requests.'}, status=403)
@@ -601,7 +609,7 @@ def get_child_requests(request):
     return Response(result, status=200)
 
 @api_view(['GET'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_accepted_requests(request):
     if request.user.role != 'student':
         return Response({'error': 'Only students can view parent requests.'}, status=403)
@@ -626,7 +634,7 @@ def get_accepted_requests(request):
 # Adjust to your actual app name
 
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def track_book_progress(request):
     user = request.user
     book_id = request.data.get('book_id')
@@ -670,7 +678,7 @@ def track_book_progress(request):
         'last_read_at': progress.last_read_at
     }, status=status.HTTP_200_OK)
 @api_view(['POST'])
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def track_video_progress(request):
     user = request.user
     video_id = request.data.get('video_id')
@@ -717,7 +725,7 @@ def track_video_progress(request):
 
 @api_view(['POST'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def create_user_subscription(request):
     user = request.user
     plan_id = request.data.get('subscription_plan_id')
@@ -743,7 +751,7 @@ def create_user_subscription(request):
     }, status=201)
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_active_subscription(request):
     user = request.user
     today = timezone.now().date()
@@ -787,7 +795,7 @@ def get_active_subscription(request):
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def user_grade(request):
     user = request.user
     child_id = request.query_params.get('child_id')
@@ -826,7 +834,7 @@ def user_grade(request):
     return Response(result, status=200)
 @api_view(['POST'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def start_grade(request):
     user = request.user
     grade_id = request.data.get('grade_id')
@@ -848,7 +856,7 @@ from django.utils.timezone import datetime
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def aggregated_progress_per_grade(request):
     user = request.user
 
@@ -966,7 +974,7 @@ def aggregated_progress_per_grade(request):
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def aggregated_progress_subject_level(request):
     user = request.user
     level = request.query_params.get('level')
@@ -1065,7 +1073,7 @@ def aggregated_progress_subject_level(request):
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def aggregated_progress_subjects_under_user_grades(request):
     user = request.user
     user_grades = User_Grade.objects.filter(user=user, is_active=True).select_related('grade')
@@ -1144,7 +1152,7 @@ def aggregated_progress_subjects_under_user_grades(request):
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def aggregated_progress_chapter_level(request):
     user = request.user
     level = request.query_params.get('level')
@@ -1247,7 +1255,7 @@ def aggregated_progress_chapter_level(request):
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def aggregated_progress_chapter_level_for_user(request):
     user = request.user
     child_id = request.query_params.get('child_id')
@@ -1377,7 +1385,7 @@ def aggregated_progress_chapter_level_for_user(request):
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def aggregated_progress_subsection_level(request):
     user = request.user
     level = request.query_params.get('level')
@@ -1459,7 +1467,7 @@ def aggregated_progress_subsection_level(request):
 
 @api_view(['GET'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def get_user_progress(request, content_type, content_id):
     user = request.user
 
@@ -1560,7 +1568,7 @@ def get_user_progress(request, content_type, content_id):
 
 @api_view(['POST'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def submit_exercise_answer(request):
     user = request.user
     question_id = request.data.get('question_id')
@@ -1614,7 +1622,7 @@ def submit_exercise_answer(request):
     })
 @api_view(['POST'])
 
-@permission_classes([IsAuthenticated])
+@permission_classes([IsAuthenticated, IsVerified])
 def reset_question_progress_for_exercise(request):
     user = request.user
     exercise_id = request.data.get('exercise_id')
