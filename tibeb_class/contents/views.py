@@ -268,8 +268,11 @@ def featured_subjects(request):
         except Grade.DoesNotExist:
             return Response({'error': 'Grade not found'}, status=status.HTTP_404_NOT_FOUND)
 
-        subjects = Subject.objects.filter(grade=grade)[:3]
-        serialized = SubjectSerializer(subjects, many=True)
+        subjects = list(Subject.objects.filter(grade=grade))
+        random.shuffle(subjects)
+        selected_subjects = subjects[:3]
+
+        serialized = SubjectSerializer(selected_subjects, many=True)
         return Response({
 
             'featured_subjects': serialized.data
