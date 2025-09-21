@@ -30,13 +30,13 @@ def get_video_key(request):
     return FileResponse(open(key_path, 'rb'), content_type='application/octet-stream')
 @api_view(['GET'])
 def get_grades(request):
-    grades = Grade.objects.all()
+    grades = Grade.objects.all().order_by('rank')
     serializer = GradeSerializer(grades, many=True)
     return Response(serializer.data)
 
 @api_view(['GET'])
 def get_subjects(request):
-    subjects = Subject.objects.all()
+    subjects = Subject.objects.all().order_by('rank')
     serializer = SubjectSerializer(subjects, many=True)
     return Response(serializer.data)
 @api_view(['GET'])
@@ -46,7 +46,7 @@ def subjects_by_grade(request, grade_id):
     except Grade.DoesNotExist:
         return Response({'error': 'Grade not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    subjects = Subject.objects.filter(grade=grade)
+    subjects = Subject.objects.filter(grade=grade).order_by('rank')
     serializer = SubjectSerializer(subjects, many=True)
 
     return Response({
@@ -57,13 +57,13 @@ def subjects_by_grade(request, grade_id):
 
 @api_view(['GET'])
 def get_books(request):
-    books = Book.objects.all()
+    books = Book.objects.all().order_by('rank')
     serializer = BookSerializer(books, many=True)
     return Response(serializer.data)
 
 @api_view(['GET'])
 def get_chapters(request):
-    chapters = Chapter.objects.all()
+    chapters = Chapter.objects.all().order_by('rank')
     serializer = ChapterSerializer(chapters, many=True)
     return Response(serializer.data)
 @api_view(['GET'])
@@ -82,7 +82,7 @@ def chapters_by_subject(request, subject_id):
     except Subject.DoesNotExist:
         return Response({'error': 'Subject not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    chapters = Chapter.objects.filter(subject=subject)
+    chapters = Chapter.objects.filter(subject=subject).order_by('rank')
     serializer = ChapterSerializer(chapters, many=True)
 
     return Response({
@@ -95,7 +95,7 @@ def chapters_by_subject(request, subject_id):
 
 @api_view(['GET'])
 def get_subsections(request):
-    subsections = Subsection.objects.all()
+    subsections = Subsection.objects.all().order_by('rank')
     serializer = SubsectionSerializer(subsections, many=True)
     return Response(serializer.data)
 @api_view(['GET'])
@@ -115,7 +115,7 @@ def subsections_by_chapter(request, chapter_id):
     except Chapter.DoesNotExist:
         return Response({'error': 'Chapter not found'}, status=status.HTTP_404_NOT_FOUND)
 
-    subsections = Subsection.objects.filter(chapter=chapter)
+    subsections = Subsection.objects.filter(chapter=chapter).order_by('rank')
     serializer = SubsectionSerializer(subsections, many=True)
 
     return Response({
@@ -130,7 +130,7 @@ def subsections_by_chapter(request, chapter_id):
 
 @api_view(['GET'])
 def get_exercises(request):
-    exercises = Exercise.objects.all()
+    exercises = Exercise.objects.all().order_by('rank')
     serializer = ExerciseSerializer(exercises, many=True)
     return Response(serializer.data)
 @api_view(['GET'])
@@ -169,7 +169,7 @@ def get_exercise_question(request, exercise_id):
 
 @api_view(['GET'])
 def get_videos(request):
-    videos = Video.objects.all()
+    videos = Video.objects.all().order_by('rank')
     serializer = VideoSerializer(videos, many=True)
     return Response(serializer.data)
 

@@ -44,7 +44,7 @@ class Chapter(models.Model):
 
 
     def __str__(self):
-        return f"{self.title} - {self.subject.name} - ({self.subject.grade.name})"
+        return f"{self.chapter_number}-{self.title} - {self.subject.name} - ({self.subject.grade.name})"
 
 
 class Subsection(models.Model):
