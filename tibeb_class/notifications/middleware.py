@@ -14,7 +14,6 @@ def get_user_from_token(token_key):
         user = User.objects.get(id=access_token['user_id'])
         return user
     except Exception as e:
-        print(f"[JWTAuthMiddleware] Token validation failed: {e}")
         from django.contrib.auth.models import AnonymousUser
         return AnonymousUser()
 

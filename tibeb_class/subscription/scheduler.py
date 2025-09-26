@@ -14,7 +14,6 @@ def update_subscription_statuses():
     for sub in expired_subs:
         sub.status = "expired"
         sub.save(update_fields=[ "status"])
-        print(f"❌ Expired: {sub.user.username}")
 
         next_sub = (
             Payment.objects
@@ -25,11 +24,10 @@ def update_subscription_statuses():
         if next_sub:
             next_sub.status = "active"
             next_sub.save(update_fields=["status"])
-            print(f"✅ Activated next plan for {sub.user.username}: {next_sub.subscription_plan.name}")
 
 
 def start():
     """Start APScheduler to run every hour."""
     scheduler = BackgroundScheduler()
-    scheduler.add_job(update_subscription_statuses, "interval", seconds=10)
+    scheduler.add_job(update_subscription_statuses, "interval", hours=1)
     scheduler.start()
