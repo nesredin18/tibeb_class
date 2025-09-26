@@ -23,6 +23,7 @@ urlpatterns = [
     path('api/user/', include('user.urls')),
     path('api/contents/', include('contents.urls')),
     path('api/subscription-plans/', include('subscription.urls')),
+    path('api/ws/notifications/', include('notifications.urls')),
 
 ]
 from django.conf import settings

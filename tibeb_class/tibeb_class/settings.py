@@ -46,7 +46,9 @@ INSTALLED_APPS = [
     'rest_framework',
     'rest_framework_simplejwt',
     'contents',
-    'corsheaders'
+    'corsheaders',
+    'channels',
+    'notifications',
     ]
 
 MIDDLEWARE = [
@@ -66,6 +68,14 @@ REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
     ),
+}
+
+ASGI_APPLICATION = "tibeb_class.asgi.application"
+# settings.py
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer"
+    }
 }
 
 TEMPLATES = [
