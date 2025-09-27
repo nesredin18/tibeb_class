@@ -6,3 +6,5 @@ class NotificationsConfig(AppConfig):
     name = 'notifications'
     def ready(self):
         import notifications.signals
+        from . import scheduler
+        scheduler.start()

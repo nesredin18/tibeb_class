@@ -155,6 +155,9 @@ def get_exercise_question(request, exercise_id):
     # Get ordered questions
     questions = exercise.questions.all().order_by('rank')
 
+    if questions.count() == 0:
+        return Response({"error": "No questions found for this exercise"}, status=status.HTTP_404_NOT_FOUND)
+
     if index < 0 or index >= questions.count():
         return Response({"error": "Invalid question index"}, status=status.HTTP_400_BAD_REQUEST)
 
