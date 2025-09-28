@@ -68,7 +68,6 @@ def enqueue_notification_for_book_video(sender, instance, created, **kwargs):
         level=level,
     )
 
-    print(f"🕒 Queued notification for {sender.__name__} '{_title_of(instance)}' → Grade {grade_id} (level={level})")
 
 
 # ------------------------------------
@@ -108,7 +107,6 @@ def enqueue_notification_for_exercise_grades(sender, instance, action, pk_set, *
             level="grade",               # explicit M2M means per-grade targeting
         )
 
-    print(f"🕒 Queued notifications for Exercise '{_title_of(instance)}' → Grades {sorted(pk_set)} (level=grade)")
 
 
 # ---------------------------------------------------
@@ -146,4 +144,3 @@ def enqueue_notification_for_exercise_no_grades(sender, instance, created, **kwa
                  type=resource_type,
                  level=level,
              )
-             print(f"🕒 Queued notification for Exercise '{_title_of(instance)}' → Grade {grade_id} (level={level})")

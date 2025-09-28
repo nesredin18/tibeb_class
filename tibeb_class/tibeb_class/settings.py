@@ -35,6 +35,7 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    #'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -47,8 +48,8 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt',
     'contents',
     'corsheaders',
-    'channels',
-    'notifications',
+    #'channels',
+    'notifications',    
     ]
 
 MIDDLEWARE = [
@@ -70,13 +71,13 @@ REST_FRAMEWORK = {
     ),
 }
 
-ASGI_APPLICATION = "tibeb_class.asgi.application"
+#ASGI_APPLICATION = "tibeb_class.asgi.application"
 # settings.py
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer"
-    }
-}
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels.layers.InMemoryChannelLayer"
+#     }
+# }
 
 TEMPLATES = [
     {

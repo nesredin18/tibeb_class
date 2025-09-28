@@ -18,15 +18,16 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'tibeb_class.settings')
 from channels.routing import ProtocolTypeRouter, URLRouter
 from channels.auth import AuthMiddlewareStack
 import notifications.routing
+application = get_asgi_application()
 
-django_asgi_app = get_asgi_application()
+# django_asgi_app = get_asgi_application()
 
-application = ProtocolTypeRouter({
-    "http": django_asgi_app,
-    "websocket": JWTAuthMiddleware(
-        URLRouter(
-            notifications.routing.websocket_urlpatterns
-        )
-    ),
-})
+# application = ProtocolTypeRouter({
+#     "http": django_asgi_app,
+#     "websocket": JWTAuthMiddleware(
+#         URLRouter(
+#             notifications.routing.websocket_urlpatterns
+#         )
+#     ),
+# })
 
