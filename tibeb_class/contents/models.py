@@ -244,10 +244,13 @@ class Video(models.Model):
     subsection = models.ForeignKey(Subsection, on_delete=models.CASCADE, related_name='videos',null=True, blank=True)
     title = models.CharField(max_length=255)
     description = models.TextField(blank=True)
-    video_file = models.FileField(upload_to='videos/')
     duration = models.DurationField(null=True, blank=True)
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
+
+    segments_zip = models.FileField(upload_to='videos/hls/zips/', blank=True, null=True, help_text="Upload zipped HLS segments (.ts files)")
+    hls_playlist = models.FileField(upload_to='videos/hls/playlists/', blank=True, null=True)
+    encryption_key = models.FileField(upload_to='videos/hls/keys/', blank=True, null=True)
 
     def clean(self):
         # Count how many hierarchy levels are filled

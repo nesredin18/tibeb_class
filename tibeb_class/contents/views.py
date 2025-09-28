@@ -1,6 +1,7 @@
 import os
 from django.conf import settings
-from django.http import FileResponse
+from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
+from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -19,15 +20,6 @@ from django.utils import timezone
 
 
 
-@api_view(['GET'])
-def get_video_key(request):
-    video_id = request.GET.get('video_id')
-    key_path = os.path.join(settings.MEDIA_ROOT, f"keys/video_{video_id}.key")
-
-    if not os.path.exists(key_path):
-        return Response({'error': 'id not found'}, status=status.HTTP_404_NOT_FOUND)
-
-    return FileResponse(open(key_path, 'rb'), content_type='application/octet-stream')
 @api_view(['GET'])
 def get_grades(request):
     grades = Grade.objects.all().order_by('rank')
@@ -434,3 +426,209 @@ def get_exercise_progress(request, exercise_id):
         "resume_index": resume_index,
         "completed": resume_index == len(all_ids),
     })
+from rest_framework_simplejwt.tokens import AccessToken
+
+from rest_framework_simplejwt.tokens import AccessToken
+from django.contrib.auth import get_user_model
+
+User = get_user_model()
+
+@api_view(['GET'])
+def protected_video_stream(request, video_id):
+    video = get_object_or_404(Video, id=video_id)
+
+    if video.ispaid == 'ispaid':
+        grade = get_video_grade(video)
+        token = request.GET.get("token")
+        if not token:
+            return Response({'error': 'Missing token'}, status=400)
+        try:
+            access = AccessToken(token)
+            user_id = access["user_id"]
+            user = User.objects.get(id=user_id)
+            request.user = user  # ✅ Manually attach user to request
+        except Exception as e:
+            print("Invalid token:", e)
+            return Response({'error': 'Invalid token'}, status=400)
+
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required to access paid content.'}, status=401)
+
+        if not user_has_valid_subscription_for_grade(request.user, grade):
+            print("No valid subscription for user:", request.user.id)
+            return Response({'error': 'You do not have an active, valid subscription for this grade.'}, status=403)
+
+    file_path = video.video_file.path
+    if not os.path.exists(file_path):
+        return Http404("Video not found")
+
+    response = FileResponse(open(file_path, 'rb'), content_type='application/octet-stream')
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+
+    return response
+@api_view(['GET'])
+def protected_book_stream(request, book_id):
+    book = get_object_or_404(Book, id=book_id)
+
+    if book.ispaid == 'ispaid':
+        grade = get_book_grade(book)
+        token = request.GET.get("token")
+        if not token:
+            return Response({'error': 'Missing token'}, status=400)
+        try:
+            access = AccessToken(token)
+            user_id = access["user_id"]
+            user = User.objects.get(id=user_id)
+            request.user = user  # ✅ Manually attach user to request
+        except Exception as e:
+            print("Invalid token:", e)
+            return Response({'error': 'Invalid token'}, status=400)
+
+        if not request.user.is_authenticated:
+            return Response({'error': 'Authentication required to access paid content.'}, status=401)
+
+        if not user_has_valid_subscription_for_grade(request.user, grade):
+            print("No valid subscription for user:", request.user.id)
+            return Response({'error': 'You do not have an active, valid subscription for this grade.'}, status=403)
+
+    file_path = book.pdf_file.path
+    if not os.path.exists(file_path):
+        return Http404("Book not found")
+
+    with open(file_path, 'rb') as f:
+        file_data = f.read()
+
+    response = HttpResponse(file_data, content_type='application/octet-stream')
+    response["X-Content-Type-Options"] = "nosniff"
+    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+    response["Pragma"] = "no-cache"
+    
+    print(response)
+    
+    return response
+def get_video_grade(video):
+    """
+    Dynamically resolve the grade for a video.
+    Works whether grade is set directly or via subject/chapter/subsection.
+    """
+    if video.grade:
+        return video.grade
+    if video.subject and video.subject.grade:
+        return video.subject.grade
+    if video.chapter and video.chapter.subject and video.chapter.subject.grade:
+        return video.chapter.subject.grade
+    if video.subsection and video.subsection.chapter and video.subsection.chapter.subject:
+        return video.subsection.chapter.subject.grade
+    return None
+def get_book_grade(book):
+    """
+    Dynamically resolve the grade for a book.
+    Works whether grade is set directly or via subject/chapter/subsection.
+    """
+    if book.grade:
+        return book.grade
+    if book.subject and book.subject.grade:
+        return book.subject.grade
+    if book.chapter and book.chapter.subject and book.chapter.subject.grade:
+        return book.chapter.subject.grade
+    if book.subsection and book.subsection.chapter and book.subsection.chapter.subject:
+        return book.subsection.chapter.subject.grade
+    return None
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.permissions import AllowAny
+import re
+from django.http import HttpResponse
+from django.shortcuts import get_object_or_404
+from rest_framework.decorators import api_view, permission_classes
+from rest_framework.permissions import AllowAny
+from rest_framework.exceptions import PermissionDenied
+from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import AccessToken
+import os
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_video_key(request, video_id):
+    """Return encryption key file for a video (after access check if paid)."""
+    video = get_object_or_404(Video, id=video_id)
+
+    # ✅ Only check token if the video is marked as paid
+    if video.ispaid == 'ispaid':
+        token = request.GET.get("token")
+        if not token or token in ["null", "undefined", ""]:
+            return Response({'error': 'Missing or invalid token'}, status=400)
+
+        try:
+            access = AccessToken(token)
+            user = User.objects.get(id=access['user_id'])
+        except Exception as e:
+            print("Invalid token:", e)
+            return Response({'error': 'Invalid token'}, status=400)
+
+        if not user_has_valid_subscription_for_grade(user, video.grade):
+            raise PermissionDenied("You do not have a valid subscription for this grade.")
+
+    # ✅ Ensure key exists
+    if not video.encryption_key or not os.path.exists(video.encryption_key.path):
+        raise Http404("Encryption key not found")
+
+    # ✅ Return key bytes inline
+    with open(video.encryption_key.path, "rb") as f:
+        key_data = f.read()
+
+    response = HttpResponse(key_data, content_type="application/octet-stream")
+    response["Content-Disposition"] = "inline"
+    response["Cache-Control"] = "no-store"
+    return response
+
+@api_view(['GET'])
+@permission_classes([AllowAny])
+def get_video_playlist(request, video_id):
+    """
+    Return the HLS playlist (.m3u8) with:
+    - Secure key URL for paid content
+    - Full absolute URLs for each segment
+    """
+    video = get_object_or_404(Video, id=video_id)
+    token = request.GET.get("token")
+
+    if not video.hls_playlist or not os.path.exists(video.hls_playlist.path):
+        raise Http404("Playlist not found")
+
+    with open(video.hls_playlist.path, "r", encoding="utf-8") as f:
+        playlist_content = f.read()
+
+    # ✅ For paid videos: build secure key URL
+    if video.ispaid == 'ispaid':
+        if not token or token in ["null", "undefined", ""]:
+            return Response({'error': 'Missing or invalid token'}, status=400)
+        secure_key_url = f"{request.build_absolute_uri('/api/contents/key/')}{video.id}/?token={token}"
+        playlist_content = re.sub(r'URI=\".*?\"', f'URI="{secure_key_url}"', playlist_content)
+    else:
+        # ✅ For free videos: serve key file directly using media path
+        key_relative = video.encryption_key.name.replace("\\", "/")
+        key_url = request.build_absolute_uri(f"/media/{key_relative}")
+        playlist_content = re.sub(r'URI=\".*?\"', f'URI="{key_url}"', playlist_content)
+
+    # ✅ Replace segment paths with absolute URLs
+   # ✅ Replace relative segment paths (e.g. ../segments/out_000.ts or out_000.ts)
+    base_media_url = request.build_absolute_uri('/media/videos/hls/')
+
+    def replace_segment(match):
+        segment_name = os.path.basename(match.group(2))  # e.g. out_000.ts
+        segment_url = f"{base_media_url}{video.id}_{video.title.replace(' ', '_')}/segments/{segment_name}"
+        return f"\n{segment_url}"
+
+    # Match both ../segments/out_000.ts and out_000.ts
+    playlist_content = re.sub(r'(^|\n)(?:\.\./segments/)?(out_\d+\.ts)', replace_segment, playlist_content)
+
+
+    # ✅ Send the updated playlist
+    response = HttpResponse(playlist_content, content_type="application/vnd.apple.mpegurl")
+    response["Content-Disposition"] = "inline"
+    response["Cache-Control"] = "no-store"
+    return response
+
+
+
