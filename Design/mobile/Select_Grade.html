@@ -1,0 +1,105 @@
+<html><head>
+<meta charset="utf-8"/>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Lexend%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style>
+    .grade-card {
+      transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .grade-card:hover {
+      transform: translateY(-4px);
+      box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+    }
+  </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50" style='font-family: Lexend, "Noto Sans", sans-serif;'>
+<div class="relative flex size-full min-h-screen flex-col justify-between group/design-root overflow-x-hidden">
+<div>
+<header class="sticky top-0 z-10 bg-slate-50/80 backdrop-blur-md shadow-sm">
+<div class="flex items-center p-4 pb-3">
+<h1 class="text-slate-900 text-xl font-bold leading-tight tracking-tight flex-1 text-center">Learn</h1>
+<button aria-label="Settings" class="flex items-center justify-center rounded-full h-10 w-10 bg-transparent text-slate-700 hover:bg-slate-100 active:bg-slate-200 transition-colors">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M128,80a48,48,0,1,0,48,48A48.05,48.05,0,0,0,128,80Zm0,80a32,32,0,1,1,32-32A32,32,0,0,1,128,160Zm88-29.84q.06-2.16,0-4.32l14.92-18.64a8,8,0,0,0,1.48-7.06,107.21,107.21,0,0,0-10.88-26.25,8,8,0,0,0-6-3.93l-23.72-2.64q-1.48-1.56-3-3L186,40.54a8,8,0,0,0-3.94-6,107.71,107.71,0,0,0-26.25-10.87,8,8,0,0,0-7.06,1.49L130.16,40Q128,40,125.84,40L107.2,25.11a8,8,0,0,0-7.06-1.48A107.6,107.6,0,0,0,73.89,34.51a8,8,0,0,0-3.93,6L67.32,64.27q-1.56,1.49-3,3L40.54,70a8,8,0,0,0-6,3.94,107.71,107.71,0,0,0-10.87,26.25,8,8,0,0,0,1.49,7.06L40,125.84Q40,128,40,130.16L25.11,148.8a8,8,0,0,0-1.48,7.06,107.21,107.21,0,0,0,10.88,26.25,8,8,0,0,0,6,3.93l23.72,2.64q1.49,1.56,3,3L70,215.46a8,8,0,0,0,3.94,6,107.71,107.71,0,0,0,26.25,10.87,8,8,0,0,0,7.06-1.49L125.84,216q2.16.06,4.32,0l18.64,14.92a8,8,0,0,0,7.06,1.48,107.21,107.21,0,0,0,26.25-10.88,8,8,0,0,0,3.93-6l2.64-23.72q1.56-1.48,3-3L215.46,186a8,8,0,0,0,6-3.94,107.71,107.71,0,0,0,10.87-26.25,8,8,0,0,0-1.49-7.06Zm-16.1-6.5a73.93,73.93,0,0,1,0,8.68,8,8,0,0,0,1.74,5.48l14.19,17.73a91.57,91.57,0,0,1-6.23,15L187,173.11a8,8,0,0,0-5.1,2.64,74.11,74.11,0,0,1-6.14,6.14,8,8,0,0,0-2.64,5.1l-2.51,22.58a91.32,91.32,0,0,1-15,6.23l-17.74-14.19a8,8,0,0,0-5-1.75h-.48a73.93,73.93,0,0,1-8.68,0,8,8,0,0,0-5.48,1.74L100.45,215.8a91.57,91.57,0,0,1-15-6.23L82.89,187a8,8,0,0,0-2.64-5.1,74.11,74.11,0,0,1-6.14-6.14,8,8,0,0,0-5.1-2.64L46.43,170.6a91.32,91.32,0,0,1-6.23-15l14.19-17.74a8,8,0,0,0,1.74-5.48,73.93,73.93,0,0,1,0-8.68,8,8,0,0,0-1.74-5.48L40.2,100.45a91.57,91.57,0,0,1,6.23-15L69,82.89a8,8,0,0,0,5.1-2.64,74.11,74.11,0,0,1,6.14-6.14A8,8,0,0,0,82.89,69L85.4,46.43a91.32,91.32,0,0,1,15-6.23l17.74,14.19a8,8,0,0,0,5.48,1.74,73.93,73.93,0,0,1,8.68,0,8,8,0,0,0,5.48-1.74L155.55,40.2a91.57,91.57,0,0,1,15,6.23L173.11,69a8,8,0,0,0,2.64,5.1,74.11,74.11,0,0,1,6.14,6.14,8,8,0,0,0,5.1,2.64l22.58,2.51a91.32,91.32,0,0,1,6.23,15l-14.19,17.74A8,8,0,0,0,199.87,123.66Z">
+</path>
+</svg>
+</button>
+</div>
+</header>
+<main class="px-4 pt-6 pb-8">
+<h2 class="text-slate-800 text-2xl font-bold leading-tight tracking-tight mb-6">Select your grade</h2>
+<div class="grid grid-cols-2 gap-4">
+<a class="grade-card flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-500 active:bg-blue-50" href="#">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-16 h-16 shrink-0 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBLIklk7glZl6OCRQp3F8n4YzWpvkariDtcG1glx7MUPWyTy_E9fdGxzOOe9VQMlWJgCKqXYxjvhAl6HzlVFB3BYqsQUdUH9UPRla8tuq891JKPyrLZgRXFChgy442rjBaPz4vxuLHfsluizUCTj6TiqIbzIDPPfRPkskXVuBFEHGMUYRD1TcJPyzevSPtaeAljnzwo_D1TO-AsN1UPYa1OmOye6P1MG27f8I0xNWyopKN1X8fAh3gtKewrjMcLoMDk6zTeEeH-Z0DM");'>
+</div>
+<h3 class="text-slate-800 text-lg font-semibold leading-tight">Grade 9</h3>
+</a>
+<a class="grade-card flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-500 active:bg-blue-50" href="#">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-16 h-16 shrink-0 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBVHIOKiW9r9p5mPUn_k4EN3bIFrx-6lubSYWjLUq8DgOZSvIhmU5QmI5w6UXXo_Cjoaqj7u5-pas1uEml_iOwmyFpph0KN6KzdN9F7eIhA4G6V3qI6fogQeHrzSNbMZksop44UTW6PaSqz7dwK9TsQrpCrsoeJUy5oFYJH6mF1urRa2EgxfkKZ9aRGUjz4dIQuAw52g1GwVyKh03xqghjLsgCF-JUx60r7XmbxCp5HQjE8ouVssJVflmGrgGVrZaNdmiv1_AUZ1lt4");'>
+</div>
+<h3 class="text-slate-800 text-lg font-semibold leading-tight">Grade 10</h3>
+</a>
+<a class="grade-card flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-500 active:bg-blue-50" href="#">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-16 h-16 shrink-0 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBWMCG0i-5rLK3IUvtK7-YAAH61cx2ZzuzKigFCgKhi8-Bl_xAF5Ch1iOiE_X3BUahQBy15PfvuW8Ts0mqjEwfF_ZRY4uXp4HYHus6-c1dnzCTsds3FKV63BeB15pr4IjqK-kT3J-yNh9yxH0E-yMyw1QDSlWs_tM2VdW9_BAZ8UGXFdAao_yv4NcVRg6AIy81MrQmZzjY7c2GI6TRDdcc6x04N6tqYAZOlbHW5o7E5Zicnj52RInl8WLPssiDy4_ybHyLTPqMHu6p8");'>
+</div>
+<h3 class="text-slate-800 text-lg font-semibold leading-tight">Grade 11</h3>
+</a>
+<a class="grade-card flex flex-col items-center gap-3 rounded-xl border border-slate-200 bg-white p-4 hover:border-blue-500 active:bg-blue-50" href="#">
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-lg w-16 h-16 shrink-0 shadow-sm" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBzv13nRe6Nn2hF5XbOlbBDBx3vkIHomHb51Pvp9_t9R0qOn1RoyDfzAusv5GJ4njZX8KUN5sehUqBQcZhzUWGvWRqPZju0PLtQFbk2cMFMmlo2ApU6VSMIE8bX95IiJxS-VcY-QkX3KzJY01FLVVml3v1WKSZguOYeX5JGKOEFvWZnM5yTfpS0fYryiMvEXBmNys6YUPLScrm_SLsecgKeYQETGchcnDSDMdcLPwHJdXf1rfaoOgptxxzIchIacSFzI3y9zh21Go6B");'>
+</div>
+<h3 class="text-slate-800 text-lg font-semibold leading-tight">Grade 12</h3>
+</a>
+</div>
+</main>
+</div>
+<footer class="sticky bottom-0 z-10">
+<nav class="flex gap-2 border-t border-slate-200 bg-slate-50/80 backdrop-blur-md px-4 pt-3 pb-4">
+<a class="flex flex-1 flex-col items-center justify-end gap-1 rounded-lg text-blue-600 py-1" href="#">
+<div class="text-blue-600 flex h-7 w-7 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M240,64V192a16,16,0,0,1-16,16H160a24,24,0,0,0-24,24,8,8,0,0,1-16,0,24,24,0,0,0-24-24H32a16,16,0,0,1-16-16V64A16,16,0,0,1,32,48H88a32,32,0,0,1,32,32v88a8,8,0,0,0,16,0V80a32,32,0,0,1,32-32h56A16,16,0,0,1,240,64Z">
+</path>
+</svg>
+</div>
+<p class="text-blue-600 text-xs font-semibold leading-normal tracking-wide">Learn</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 rounded-lg text-slate-500 hover:text-blue-500 active:bg-blue-50 py-1 transition-colors" href="#">
+<div class="flex h-7 w-7 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M213.66,82.34l-56-56A8,8,0,0,0,152,24H56A16,16,0,0,0,40,40V216a16,16,0,0,0,16,16H200a16,16,0,0,0,16-16V88A8,8,0,0,0,213.66,82.34ZM160,51.31,188.69,80H160ZM200,216H56V40h88V88a8,8,0,0,0,8,8h48V216Z">
+</path>
+</svg>
+</div>
+<p class="text-xs font-medium leading-normal tracking-wide">Practice</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 rounded-lg text-slate-500 hover:text-blue-500 active:bg-blue-50 py-1 transition-colors" href="#">
+<div class="flex h-7 w-7 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M140,180a12,12,0,1,1-12-12A12,12,0,0,1,140,180ZM128,72c-22.06,0-40,16.15-40,36v4a8,8,0,0,0,16,0v-4c0-11,10.77-20,24-20s24,9,24,20-10.77,20-24,20a8,8,0,0,0-8,8v8a8,8,0,0,0,16,0v-.72c18.24-3.35,32-17.9,32-35.28C168,88.15,150.06,72,128,72Zm104,56A104,104,0,1,1,128,24,104.11,104.11,0,0,1,232,128Zm-16,0a88,88,0,1,0-88,88A88.1,88.1,0,0,0,216,128Z">
+</path>
+</svg>
+</div>
+<p class="text-xs font-medium leading-normal tracking-wide">Ask</p>
+</a>
+<a class="flex flex-1 flex-col items-center justify-end gap-1 rounded-lg text-slate-500 hover:text-blue-500 active:bg-blue-50 py-1 transition-colors" href="#">
+<div class="flex h-7 w-7 items-center justify-center">
+<svg fill="currentColor" height="24px" viewBox="0 0 256 256" width="24px" xmlns="http://www.w3.org/2000/svg">
+<path d="M230.92,212c-15.23-26.33-38.7-45.21-66.09-54.16a72,72,0,1,0-73.66,0C63.78,166.78,40.31,185.66,25.08,212a8,8,0,1,0,13.85,8c18.84-32.56,52.14-52,89.07-52s70.23,19.44,89.07,52a8,8,0,1,0,13.85-8ZM72,96a56,56,0,1,1,56,56A56.06,56.06,0,0,1,72,96Z">
+</path>
+</svg>
+</div>
+<p class="text-xs font-medium leading-normal tracking-wide">Profile</p>
+</a>
+</nav>
+</footer>
+</div>
+
+</body></html>

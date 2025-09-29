@@ -12,6 +12,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 import os
+from datetime import timedelta
+
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -33,19 +35,27 @@ ALLOWED_HOSTS = []
 # Application definition
 
 INSTALLED_APPS = [
+    #'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'user',
+    'subscription',
     'rest_framework',
-    "rest_framework.authtoken",
-    'contents'
-]
+    'rest_framework_simplejwt',
+    'contents',
+    'corsheaders',
+    #'channels',
+    'notifications',    
+    ]
 
 MIDDLEWARE = [
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
+    "whitenoise.middleware.WhiteNoiseMiddleware",
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -55,6 +65,19 @@ MIDDLEWARE = [
 ]
 
 ROOT_URLCONF = 'tibeb_class.urls'
+REST_FRAMEWORK = {
+    'DEFAULT_AUTHENTICATION_CLASSES': (
+        'rest_framework_simplejwt.authentication.JWTAuthentication',
+    ),
+}
+
+#ASGI_APPLICATION = "tibeb_class.asgi.application"
+# settings.py
+# CHANNEL_LAYERS = {
+#     "default": {
+#         "BACKEND": "channels.layers.InMemoryChannelLayer"
+#     }
+# }
 
 TEMPLATES = [
     {
@@ -70,6 +93,8 @@ TEMPLATES = [
         },
     },
 ]
+CORS_ALLOW_ALL_ORIGINS = True
+
 
 WSGI_APPLICATION = 'tibeb_class.wsgi.application'
 
@@ -103,6 +128,13 @@ AUTH_PASSWORD_VALIDATORS = [
     },
 ]
 
+AUTH_USER_MODEL = 'user.CustomUser'
+CHAPA_API_KEY ='CHASECK_TEST-dclCApwJ3rgnUr8BWje3efcVxFXaQPmG'
+CHAPA_INIT_URL = 'https://api.chapa.co/v1/transaction/initialize'
+CHAPA_CALLBACK_URL = 'https://yourdomain.com/api/payments/webhook/'
+DEFAULT_RETURN_URL = 'http://localhost:5173/'
+CHAPA_WEBHOOK_SECRET = 'your_webhook_secret'
+
 
 # Internationalization
 # https://docs.djangoproject.com/en/5.2/topics/i18n/
@@ -115,17 +147,47 @@ USE_I18N = True
 
 USE_TZ = True
 
+STATICFILES_STORAGE = "whitenoise.storage.CompressedManifestStaticFilesStorage"
 
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'
 
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATIC_ROOT = BASE_DIR / "staticfiles"
+STATICFILES_DIRS = [
+    BASE_DIR / "static",
+]
 
+AFROMESSAGE_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoiTW9pZ1NEZTljM2p3blpnRm43ZlhqNFF2ejZaTlBPUTMiLCJleHAiOjE5MTUzODEzNTksImlhdCI6MTc1NzYxNDk1OSwianRpIjoiMWUyMWViNjEtYzViOS00NzA2LThkYTUtZThiODJiOGE1YzZkIn0.Dq2sYpMl7gjj_S7ywSLHX-er6Ckpnq9VMybCswJVtTc"
+AFROMESSAGE_FROM = "e80ad9d8-adf3-463f-80f4-7c4b39f7f164"
+AFROMESSAGE_SENDER = "YOUR_SENDER_NAME"
+AFROMESSAGE_CALLBACK = "YOUR_CALLBACK"
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'tibebclass@gmail.com'
+EMAIL_HOST_PASSWORD = 'ourc vyel vmec oios'
+DEFAULT_FROM_EMAIL = "Tibeb Class <tibebclass@gmail.com>"
+
+FRONTEND_URL = "http://localhost:5173"
+BACKEND_URL=  "http://127.0.0.1:8000"
+
+SIMPLE_JWT = {
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Short for security
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Can adjust per "remember me"
+    'ROTATE_REFRESH_TOKENS': True,
+    'BLACKLIST_AFTER_ROTATION': True,
+}
+
+
+
+

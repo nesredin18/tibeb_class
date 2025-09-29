@@ -1,0 +1,128 @@
+<html><head>
+<meta charset="utf-8"/>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Lexend%3Awght%40300%3B400%3B500%3B600%3B700&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style type="text/tailwindcss">
+      body {
+        font-family: 'Lexend', sans-serif;
+      }
+      .material-symbols-outlined {
+        font-variation-settings:
+        'FILL' 0,
+        'wght' 400,
+        'GRAD' 0,
+        'opsz' 24
+      }
+    </style>
+<style>
+    body {
+      min-height: max(884px, 100dvh);
+    }
+  </style>
+  </head>
+<body class="bg-slate-50">
+<div class="relative flex size-full min-h-screen flex-col justify-between group/design-root overflow-x-hidden" style="--select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(73,113,156)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');">
+<div class="flex-grow">
+<header class="sticky top-0 z-10 bg-slate-50/80 backdrop-blur-md">
+<div class="flex items-center p-4 pb-3 justify-between">
+<h1 class="text-slate-900 text-2xl font-semibold leading-tight flex-1 text-center pl-12">Home</h1>
+<div class="flex w-12 items-center justify-end">
+<button class="flex items-center justify-center rounded-full h-10 w-10 bg-transparent text-slate-700 hover:bg-slate-200 transition-colors duration-150">
+<span class="material-symbols-outlined text-2xl">
+                        settings
+                        </span>
+</button>
+</div>
+</div>
+</header>
+<main class="pb-24">
+<section class="flex flex-col gap-2 p-4 pt-2">
+<div class="flex gap-3 justify-between items-baseline">
+<h2 class="text-slate-800 text-lg font-medium">Overall Progress</h2>
+<p class="text-sky-500 text-lg font-semibold">75%</p>
+</div>
+<div class="w-full bg-slate-200 rounded-full h-2.5">
+<div class="bg-sky-500 h-2.5 rounded-full" style="width: 75%;"></div>
+</div>
+</section>
+<section class="px-4 py-3">
+<h2 class="text-slate-800 text-lg font-medium mb-2">Grade Level</h2>
+<div class="flex max-w-[480px] items-end">
+<label class="flex flex-col flex-1">
+<select class="form-select flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-slate-700 focus:outline-none focus:ring-2 focus:ring-sky-500 border border-slate-300 bg-slate-100 focus:border-sky-500 h-12 appearance-none bg-right bg-no-repeat placeholder:text-slate-400 px-3 py-2 text-base" style="background-image: var(--select-button-svg); background-position: right 0.5rem center; background-size: 1.5em 1.5em;">
+<option value="9">Grade 9</option>
+<option value="10">Grade 10</option>
+<option selected="" value="11">Grade 11</option>
+<option value="12">Grade 12</option>
+</select>
+</label>
+</div>
+</section>
+<section class="px-4 py-3">
+<h2 class="text-slate-800 text-lg font-medium mb-3">Featured</h2>
+<div class="space-y-4">
+<div class="bg-white shadow-sm rounded-xl p-4 flex items-center gap-4">
+<div class="flex-shrink-0 w-20 h-20 bg-center bg-no-repeat bg-cover rounded-lg" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuBfANoedZPu6qAuu8Gmp9fgOUj_hdf3s1Vb1wxNoNMRJXrX9U0xQihTshxOOZ-Nbfmz00vHG6uU2rAvk_0_RisDigWa01zLko83CeDZbgIds0hd9BN5-TIv3dE8JSMxGpVTmaRfvqEi7Z-EZMt0o7ZOClbSON8O3xw5Z8976LB2-uRmXNch6Vb5ZeLtQoC7JDvqIW8O5g_I6uj0ChSiOvj4d5BgGF4S2uIsaLIfOVlKwPEwLPGqeryv8Df5HyBU1bVjFUZhfdVrK95c");'>
+</div>
+<div class="flex flex-col gap-0.5 flex-1">
+<span class="text-xs font-medium text-sky-600 bg-sky-100 px-2 py-0.5 rounded-full self-start mb-1">New</span>
+<h3 class="text-slate-900 text-base font-semibold leading-tight">Mastering Math</h3>
+<p class="text-slate-600 text-sm font-normal leading-snug">Learn advanced math concepts with interactive lessons and quizzes.</p>
+</div>
+<button class="text-sky-500 hover:text-sky-600 transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="bg-white shadow-sm rounded-xl p-4 flex items-center gap-4">
+<div class="flex-shrink-0 w-20 h-20 bg-center bg-no-repeat bg-cover rounded-lg" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDpX9nLpgHGLgdohPjzshEwfccOsOaJOFR_w--i4BjJz9-Vw769RGF6Ux-GduFw0f6fqwk89qxyIcWBEEtJCJo3sFyOP7lUU991zwg4-p7PG9VqidU8q09eWqwOH77g3t24Aml5f5fUdz7CrRs4BIOq8Sc-eU7qY2aLD3L9yADGFItvMbxS02Ov0guC_YAmcmw452mRV7zQ2As4VW1xKO01lIoCJmGqx-mrlQWo0uNX5_xlvaPdNmwQsao_elu1AgjEIhOG0-8ob8g_");'>
+</div>
+<div class="flex flex-col gap-0.5 flex-1">
+<span class="text-xs font-medium text-purple-600 bg-purple-100 px-2 py-0.5 rounded-full self-start mb-1">Recommended</span>
+<h3 class="text-slate-900 text-base font-semibold leading-tight">Science Explorations</h3>
+<p class="text-slate-600 text-sm font-normal leading-snug">Explore the wonders of science with engaging experiments and simulations.</p>
+</div>
+<button class="text-sky-500 hover:text-sky-600 transition-colors">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+<div class="bg-amber-400 shadow-sm rounded-xl p-4 flex items-center gap-4 text-amber-900">
+<span class="material-symbols-outlined text-3xl">campaign</span>
+<div class="flex flex-col gap-0.5 flex-1">
+<h3 class="text-base font-semibold leading-tight">Unlock Premium Access!</h3>
+<p class="text-sm font-normal leading-snug">Get unlimited access to all courses and features.</p>
+</div>
+<button class="text-amber-900 hover:text-amber-700 transition-colors">
+<span class="material-symbols-outlined">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+</main>
+</div>
+<nav class="fixed bottom-0 left-0 right-0 bg-white border-t border-slate-200 shadow-top">
+<div class="flex justify-around items-center h-16 px-2">
+<a class="flex flex-col items-center justify-center gap-0.5 text-sky-500 flex-1 py-2 rounded-lg hover:bg-sky-50 transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl" style="font-variation-settings: 'FILL' 1;">home</span>
+<p class="text-xs font-medium">Home</p>
+</a>
+<a class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-sky-500 flex-1 py-2 rounded-lg hover:bg-sky-50 transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl">import_contacts</span>
+<p class="text-xs font-medium">Courses</p>
+</a>
+<a class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-sky-500 flex-1 py-2 rounded-lg hover:bg-sky-50 transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl">edit_note</span>
+<p class="text-xs font-medium">Practice</p>
+</a>
+<a class="flex flex-col items-center justify-center gap-0.5 text-slate-500 hover:text-sky-500 flex-1 py-2 rounded-lg hover:bg-sky-50 transition-colors" href="#">
+<span class="material-symbols-outlined text-2xl">person</span>
+<p class="text-xs font-medium">Profile</p>
+</a>
+</div>
+</nav>
+</div>
+
+</body></html>

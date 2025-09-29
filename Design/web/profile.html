@@ -1,0 +1,173 @@
+<html><head>
+<meta charset="utf-8"/>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Lexend%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons" rel="stylesheet"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style type="text/tailwindcss">
+      :root {
+        --primary-color: #b2cae5;
+        --secondary-color: #5c718a;
+        --text-primary: #101418;
+        --text-secondary: #5c718a;
+        --background-primary: #f8fafc;--border-color: #cbd5e1;}
+      .tab-active {
+        border-bottom-color: var(--primary-color) !important;
+        color: var(--text-primary) !important;
+        font-weight: 700;
+      }
+      .tab-inactive {
+        border-bottom-color: transparent !important;
+        color: var(--text-secondary) !important;
+        font-weight: 500;
+      }
+      .form-input {
+        background-color: white;border-color: var(--border-color);
+      }
+      .form-input:focus {
+        border-color: var(--primary-color);
+        box-shadow: 0 0 0 2px var(--primary-color-translucent, rgba(178, 202, 229, 0.5));}
+      .btn-primary {
+        background-color: var(--primary-color);
+        color: var(--text-primary);
+        font-weight: 700;
+      }
+      .btn-primary:hover {
+        background-color: #a1b9d4;}
+       .nav-link:hover {
+        color: var(--primary-color);
+      }
+    </style>
+</head>
+<body class="bg-[var(--background-primary)]" style='font-family: Lexend, "Noto Sans", sans-serif;'>
+<div class="relative flex size-full min-h-screen flex-col group/design-root overflow-x-hidden">
+<div class="layout-container flex h-full grow flex-col">
+<header class="flex items-center justify-between whitespace-nowrap border-b border-solid border-[var(--border-color)] px-6 md:px-10 py-4 shadow-sm">
+<div class="flex items-center gap-3 text-[var(--text-primary)]">
+<div class="size-6 text-[var(--primary-color)]"> 
+<svg fill="none" viewBox="0 0 48 48" xmlns="http://www.w3.org/2000/svg">
+<path clip-rule="evenodd" d="M24 4H42V17.3333V30.6667H24V44H6V30.6667V17.3333H24V4Z" fill="currentColor" fill-rule="evenodd"></path>
+</svg>
+</div>
+<h2 class="text-[var(--text-primary)] text-xl font-bold leading-tight tracking-[-0.015em]">TigrayEdu</h2>
+</div>
+<div class="flex flex-1 justify-end items-center gap-6">
+<nav class="hidden md:flex items-center gap-8">
+<a class="text-[var(--text-secondary)] hover:text-[var(--primary-color)] text-sm font-medium leading-normal nav-link transition-colors duration-200" href="#">Home</a>
+<a class="text-[var(--text-secondary)] hover:text-[var(--primary-color)] text-sm font-medium leading-normal nav-link transition-colors duration-200" href="#">Courses</a>
+<a class="text-[var(--text-secondary)] hover:text-[var(--primary-color)] text-sm font-medium leading-normal nav-link transition-colors duration-200" href="#">Instructors</a>
+</nav>
+<button aria-label="Notifications" class="flex items-center justify-center rounded-full h-10 w-10 bg-gray-100 hover:bg-gray-200 text-[var(--text-secondary)] transition-colors duration-200">
+<span class="material-icons text-xl">notifications</span>
+</button>
+<div class="bg-center bg-no-repeat aspect-square bg-cover rounded-full size-10 border-2 border-gray-200 hover:border-[var(--primary-color)] transition-colors duration-200" style='background-image: url("https://lh3.googleusercontent.com/aida-public/AB6AXuDH5koTrtOXd_xmXolbYlDw6gv5J7lYVOYHzDcNIlgR1MDU-kdiS75RwjL1gtwwy8Zzax0CSrTrImI_48hWJpTkFSnlvamy0b1UhDIejk5a7aarre4Q0UFV8no7CtfUOBjbdzmJEtSHf5eJv5-4Qz2UR6VaYUQxoKwXXEy6sBlygTzxL1asEjAgZUCNcqHK8-fN04m1E6udZ6t7_437YTGV_F_I8DC3iu03tCYLRK4SFZRN6i-HwIXFYs7c196MomRxojSbYJwQ85xo");'></div>
+<button aria-label="Menu" class="md:hidden flex items-center justify-center rounded-full h-10 w-10 bg-gray-100 hover:bg-gray-200 text-[var(--text-secondary)] transition-colors duration-200">
+<span class="material-icons text-xl">menu</span>
+</button>
+</div>
+</header>
+<main class="px-4 sm:px-8 md:px-16 lg:px-24 xl:px-40 flex flex-1 justify-center py-8"> 
+          <div class="layout-content-container flex flex-col w-full max-w-4xl"> 
+            <div class="flex flex-wrap justify-between items-center gap-4 p-4 mb-6">
+<div class="flex flex-col gap-1">
+<h1 class="text-[var(--text-primary)] tracking-tight text-3xl font-bold leading-tight">Profile</h1>
+<p class="text-[var(--text-secondary)] text-base font-normal leading-normal">Manage your account settings, subscription, and track your learning progress.</p>
+</div>
+</div>
+<div class="mb-6">
+<div class="flex border-b border-[var(--border-color)] px-4 gap-6 sm:gap-8">
+<a class="flex flex-col items-center justify-center border-b-[3px] pb-3 pt-4 tab-active" href="#">
+<span class="material-icons text-xl mb-1">settings</span>
+<p class="text-sm leading-normal tracking-[0.015em]">Settings</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] pb-3 pt-4 tab-inactive" href="#">
+<span class="material-icons text-xl mb-1">subscriptions</span>
+<p class="text-sm leading-normal tracking-[0.015em]">Subscription</p>
+</a>
+<a class="flex flex-col items-center justify-center border-b-[3px] pb-3 pt-4 tab-inactive" href="#">
+<span class="material-icons text-xl mb-1">trending_up</span>
+<p class="text-sm leading-normal tracking-[0.015em]">Progress</p>
+</a>
+</div>
+</div>
+<div id="settings-content">
+<h2 class="text-[var(--text-primary)] text-2xl font-bold leading-tight tracking-[-0.015em] px-4 pb-4 pt-2">Account Settings</h2>
+<form class="space-y-6 p-4 rounded-lg bg-white shadow-sm border border-[var(--border-color)]"> {}
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+<div>
+<label class="block text-[var(--text-primary)] text-sm font-medium leading-normal pb-1.5" for="fullName">Full Name</label>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] border border-[var(--border-color)] bg-white focus:border-[var(--primary-color)] h-12 placeholder:text-[var(--text-secondary)] p-3 text-base font-normal leading-normal" id="fullName" placeholder="Enter your full name" type="text"/>
+</div>
+<div>
+<label class="block text-[var(--text-primary)] text-sm font-medium leading-normal pb-1.5" for="email">Email</label>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] border border-[var(--border-color)] bg-white focus:border-[var(--primary-color)] h-12 placeholder:text-[var(--text-secondary)] p-3 text-base font-normal leading-normal" id="email" placeholder="Enter your email address" type="email"/>
+</div>
+</div>
+<div>
+<label class="block text-[var(--text-primary)] text-sm font-medium leading-normal pb-1.5" for="phoneNumber">Phone Number</label>
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden rounded-lg text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] border border-[var(--border-color)] bg-white focus:border-[var(--primary-color)] h-12 placeholder:text-[var(--text-secondary)] p-3 text-base font-normal leading-normal" id="phoneNumber" placeholder="Enter your phone number" type="tel"/>
+</div>
+<div>
+<label class="block text-[var(--text-primary)] text-sm font-medium leading-normal pb-1.5" for="password">Password</label>
+<div class="relative flex w-full flex-1 items-stretch rounded-lg">
+<input class="form-input flex w-full min-w-0 flex-1 resize-none overflow-hidden text-[var(--text-primary)] focus:outline-none focus:ring-2 focus:ring-[var(--primary-color)] border border-[var(--border-color)] bg-white focus:border-[var(--primary-color)] h-12 placeholder:text-[var(--text-secondary)] p-3 rounded-l-lg text-base font-normal leading-normal" id="password" placeholder="Enter new password or leave blank" type="password"/>
+<button aria-label="Toggle password visibility" class="text-[var(--text-secondary)] flex border border-l-0 border-[var(--border-color)] bg-gray-50 hover:bg-gray-100 items-center justify-center px-3 rounded-r-lg transition-colors duration-200" type="button">
+<span class="material-icons text-xl">visibility_off</span>
+</button>
+</div>
+<p class="text-xs text-[var(--text-secondary)] mt-1.5">Leave blank to keep your current password.</p>
+</div>
+<div class="flex justify-end pt-4">
+<button class="btn-primary flex min-w-[120px] max-w-[480px] cursor-pointer items-center justify-center overflow-hidden rounded-lg h-11 px-6 text-sm leading-normal tracking-[0.015em] transition-colors duration-200" type="submit">
+<span class="truncate">Update Profile</span>
+</button>
+</div>
+</form>
+</div>
+<div class="hidden" id="subscription-content">
+<h2 class="text-[var(--text-primary)] text-2xl font-bold leading-tight tracking-[-0.015em] px-4 pb-4 pt-2">Subscription Details</h2>
+<div class="p-4 rounded-lg bg-white shadow-sm border border-[var(--border-color)]">
+<p class="text-[var(--text-secondary)]">Your current plan details will be displayed here. You can also upgrade or change your plan.</p>
+</div>
+</div>
+<div class="hidden" id="progress-content">
+<h2 class="text-[var(--text-primary)] text-2xl font-bold leading-tight tracking-[-0.015em] px-4 pb-4 pt-2">Learning Progress</h2>
+<div class="p-4 rounded-lg bg-white shadow-sm border border-[var(--border-color)]">
+<p class="text-[var(--text-secondary)]">Your overall learning progress and statistics will be shown here.</p>
+</div>
+</div>
+</div>
+</main>
+<footer class="text-center py-6 border-t border-[var(--border-color)] mt-auto">
+<p class="text-sm text-[var(--text-secondary)]">© 2024 TigrayEdu. All rights reserved.</p>
+</footer>
+</div>
+</div>
+<script>
+      const tabs = document.querySelectorAll('.flex.border-b a');
+      const tabContents = {
+        settings: document.getElementById('settings-content'),
+        subscription: document.getElementById('subscription-content'),
+        progress: document.getElementById('progress-content')
+      };
+      tabs.forEach(tab => {
+        tab.addEventListener('click', (e) => {
+          e.preventDefault();
+          tabs.forEach(t => {
+            t.classList.remove('tab-active');
+            t.classList.add('tab-inactive');
+          });
+          tab.classList.remove('tab-inactive');
+          tab.classList.add('tab-active');
+          Object.values(tabContents).forEach(content => content.classList.add('hidden'));
+          const tabName = tab.querySelector('p').textContent.toLowerCase();
+          if (tabContents[tabName]) {
+            tabContents[tabName].classList.remove('hidden');
+          }
+        });
+      });
+    </script>
+
+</body></html>

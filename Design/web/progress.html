@@ -1,0 +1,212 @@
+<!DOCTYPE html>
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<link crossorigin="" href="https://fonts.gstatic.com/" rel="preconnect"/>
+<link as="style" href="https://fonts.googleapis.com/css2?display=swap&amp;family=Lexend%3Awght%40400%3B500%3B700%3B900&amp;family=Noto+Sans%3Awght%40400%3B500%3B700%3B900" onload="this.rel='stylesheet'" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500;600;700&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/icon?family=Material+Icons+Outlined" rel="stylesheet"/>
+<title>Stitch Design</title>
+<link href="data:image/x-icon;base64," rel="icon" type="image/x-icon"/>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<style type="text/tailwindcss">
+      :root {
+        --primary: #1978e5;
+        --background: #f8fafc;
+        --card-bg: #ffffff;
+        --text-primary: #1e293b;
+        --text-secondary: #64748b;
+        --border-color: #e2e8f0;
+      }
+      body {
+        font-family: 'Lexend', sans-serif;
+      }
+    </style>
+</head>
+<body class="bg-[var(--background)] text-[var(--text-primary)]">
+<div class="relative flex size-full min-h-screen flex-col" style="--select-button-svg: url('data:image/svg+xml,%3csvg xmlns=%27http://www.w3.org/2000/svg%27 width=%2724px%27 height=%2724px%27 fill=%27rgb(78,112,151)%27 viewBox=%270 0 256 256%27%3e%3cpath d=%27M181.66,170.34a8,8,0,0,1,0,11.32l-48,48a8,8,0,0,1-11.32,0l-48-48a8,8,0,0,1,11.32-11.32L128,212.69l42.34-42.35A8,8,0,0,1,181.66,170.34Zm-96-84.68L128,43.31l42.34,42.35a8,8,0,0,0,11.32-11.32l-48-48a8,8,0,0,0-11.32,0l-48,48A8,8,0,0,0,85.66,85.66Z%27%3e%3c/path%3e%3c/svg%3e');">
+<div class="flex h-full grow flex-col">
+
+<main class="flex-1 px-10 md:px-20 lg:px-40 py-8">
+<div class="mx-auto max-w-7xl">
+<div class="mb-8">
+<h1 class="text-4xl font-bold tracking-tight">My Progress</h1>
+<p class="text-md mt-2 text-[var(--text-secondary)]">Track your learning journey and identify areas for improvement.</p>
+</div>
+<div class="border-b border-[var(--border-color)]">
+<nav aria-label="Tabs" class="-mb-px flex space-x-8">
+<a class="border-[var(--primary)] text-[var(--primary)] whitespace-nowrap border-b-2 py-4 px-1 text-sm font-semibold" href="#"> All Grades </a>
+<a class="border-transparent text-[var(--text-secondary)] hover:border-gray-300 hover:text-gray-700 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-semibold" href="#">
+                  Grade 12
+                </a>
+<a class="border-transparent text-[var(--text-secondary)] hover:border-gray-300 hover:text-gray-700 whitespace-nowrap border-b-2 py-4 px-1 text-sm font-semibold" href="#">
+                  Grade 11
+                </a>
+</nav>
+</div>
+<section class="mt-8">
+<h2 class="text-2xl font-bold tracking-tight mb-4">Overall Progress</h2>
+<div class="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border-color)]">
+<div class="flex items-center justify-between mb-2">
+<p class="text-base font-medium">Overall Completion</p>
+<p class="text-base font-bold text-[var(--primary)]">75%</p>
+</div>
+<div class="w-full bg-gray-200 rounded-full h-2.5">
+<div class="bg-[var(--primary)] h-2.5 rounded-full" style="width: 75%;"></div>
+</div>
+<p class="text-sm text-[var(--text-secondary)] mt-2">You've made great progress! Keep up the momentum.</p>
+</div>
+</section>
+<section class="mt-8 grid grid-cols-1 lg:grid-cols-2 gap-8">
+<div class="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border-color)]">
+<p class="text-lg font-semibold">Subject Completion</p>
+<p class="text-4xl font-bold text-[var(--primary)] mt-1">80%</p>
+<p class="text-base text-[var(--text-secondary)]">All Subjects</p>
+<div class="mt-6 grid grid-cols-5 gap-4 items-end h-40">
+<div class="flex flex-col items-center gap-2">
+<div class="w-full h-full flex items-end">
+<div class="w-full bg-blue-100 rounded-t-lg" style="height: 60%;"></div>
+</div>
+<p class="text-xs font-semibold text-[var(--text-secondary)]">Math</p>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-full h-full flex items-end">
+<div class="w-full bg-blue-100 rounded-t-lg" style="height: 100%;"></div>
+</div>
+<p class="text-xs font-semibold text-[var(--text-secondary)]">Physics</p>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-full h-full flex items-end">
+<div class="w-full bg-blue-100 rounded-t-lg" style="height: 10%;"></div>
+</div>
+<p class="text-xs font-semibold text-[var(--text-secondary)]">Chemistry</p>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-full h-full flex items-end">
+<div class="w-full bg-blue-100 rounded-t-lg" style="height: 50%;"></div>
+</div>
+<p class="text-xs font-semibold text-[var(--text-secondary)]">Biology</p>
+</div>
+<div class="flex flex-col items-center gap-2">
+<div class="w-full h-full flex items-end">
+<div class="w-full bg-blue-100 rounded-t-lg" style="height: 90%;"></div>
+</div>
+<p class="text-xs font-semibold text-[var(--text-secondary)]">English</p>
+</div>
+</div>
+</div>
+<div class="bg-[var(--card-bg)] p-6 rounded-2xl shadow-sm border border-[var(--border-color)]">
+<p class="text-lg font-semibold">Chapter Scores</p>
+<p class="text-4xl font-bold text-[var(--primary)] mt-1">72%</p>
+<p class="text-base text-[var(--text-secondary)]">Last 30 Days</p>
+<div class="mt-4 h-44">
+<svg fill="none" height="100%" preserveAspectRatio="none" viewBox="0 0 472 150" width="100%" xmlns="http://www.w3.org/2000/svg">
+<path d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25V149H0V109Z" fill="url(#paint0_linear_area)"></path>
+<path d="M0 109C18.1538 109 18.1538 21 36.3077 21C54.4615 21 54.4615 41 72.6154 41C90.7692 41 90.7692 93 108.923 93C127.077 93 127.077 33 145.231 33C163.385 33 163.385 101 181.538 101C199.692 101 199.692 61 217.846 61C236 61 236 45 254.154 45C272.308 45 272.308 121 290.462 121C308.615 121 308.615 149 326.769 149C344.923 149 344.923 1 363.077 1C381.231 1 381.231 81 399.385 81C417.538 81 417.538 129 435.692 129C453.846 129 453.846 25 472 25" stroke="var(--primary)" stroke-linecap="round" stroke-width="3"></path>
+<defs>
+<linearGradient gradientUnits="userSpaceOnUse" id="paint0_linear_area" x1="236" x2="236" y1="1" y2="149">
+<stop stop-color="var(--primary)" stop-opacity="0.2"></stop>
+<stop offset="1" stop-color="var(--primary)" stop-opacity="0"></stop>
+</linearGradient>
+</defs>
+</svg>
+</div>
+</div>
+</section>
+<section class="mt-8">
+<div class="flex items-center justify-between mb-4">
+<h2 class="text-2xl font-bold tracking-tight">Detailed Progress</h2>
+<div class="w-full max-w-xs">
+<label class="sr-only" for="subject-filter">Filter by subject</label>
+<select class="block w-full rounded-full border-gray-300 shadow-sm focus:border-[var(--primary)] focus:ring-[var(--primary)] sm:text-sm h-12 px-5" id="subject-filter">
+<option selected="">Filter by Physics</option>
+<option>Filter by Math</option>
+<option>Filter by Chemistry</option>
+</select>
+</div>
+</div>
+<div class="overflow-x-auto bg-[var(--card-bg)] rounded-2xl shadow-sm border border-[var(--border-color)]">
+<table class="min-w-full divide-y divide-[var(--border-color)]">
+<thead class="bg-gray-50">
+<tr>
+<th class="py-3.5 px-6 text-left text-sm font-semibold text-[var(--text-primary)]" scope="col">Chapter</th>
+<th class="py-3.5 px-6 text-left text-sm font-semibold text-[var(--text-primary)]" scope="col">Completion</th>
+<th class="py-3.5 px-6 text-left text-sm font-semibold text-[var(--text-primary)]" scope="col">Score</th>
+<th class="py-3.5 px-6 text-left text-sm font-semibold text-[var(--text-primary)]" scope="col">Last Attempt</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-[var(--border-color)]">
+<tr>
+<td class="whitespace-nowrap py-4 px-6 text-sm font-medium text-[var(--text-primary)]">Chapter 1: Introduction to Physics</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">
+<div class="flex items-center gap-2">
+<div class="w-24 bg-gray-200 rounded-full h-1.5">
+<div class="bg-[var(--primary)] h-1.5 rounded-full" style="width: 80%;"></div>
+</div>
+<span class="font-medium text-[var(--text-primary)]">80%</span>
+</div>
+</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">85%</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">2023-09-15</td>
+</tr>
+<tr>
+<td class="whitespace-nowrap py-4 px-6 text-sm font-medium text-[var(--text-primary)]">Chapter 2: Mechanics</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">
+<div class="flex items-center gap-2">
+<div class="w-24 bg-gray-200 rounded-full h-1.5">
+<div class="bg-[var(--primary)] h-1.5 rounded-full" style="width: 60%;"></div>
+</div>
+<span class="font-medium text-[var(--text-primary)]">60%</span>
+</div>
+</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">70%</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">2023-09-22</td>
+</tr>
+<tr>
+<td class="whitespace-nowrap py-4 px-6 text-sm font-medium text-[var(--text-primary)]">Chapter 3: Thermodynamics</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">
+<div class="flex items-center gap-2">
+<div class="w-24 bg-gray-200 rounded-full h-1.5">
+<div class="bg-[var(--primary)] h-1.5 rounded-full" style="width: 90%;"></div>
+</div>
+<span class="font-medium text-[var(--text-primary)]">90%</span>
+</div>
+</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">92%</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">2023-09-29</td>
+</tr>
+<tr>
+<td class="whitespace-nowrap py-4 px-6 text-sm font-medium text-[var(--text-primary)]">Chapter 4: Waves</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">
+<div class="flex items-center gap-2">
+<div class="w-24 bg-gray-200 rounded-full h-1.5">
+<div class="bg-[var(--primary)] h-1.5 rounded-full" style="width: 75%;"></div>
+</div>
+<span class="font-medium text-[var(--text-primary)]">75%</span>
+</div>
+</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">80%</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">2023-10-06</td>
+</tr>
+<tr>
+<td class="whitespace-nowrap py-4 px-6 text-sm font-medium text-[var(--text-primary)]">Chapter 5: Electricity and Magnetism</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">
+<div class="flex items-center gap-2">
+<div class="w-24 bg-gray-200 rounded-full h-1.5">
+<div class="bg-[var(--primary)] h-1.5 rounded-full" style="width: 50%;"></div>
+</div>
+<span class="font-medium text-[var(--text-primary)]">50%</span>
+</div>
+</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">65%</td>
+<td class="whitespace-nowrap py-4 px-6 text-sm text-[var(--text-secondary)]">2023-10-13</td>
+</tr>
+</tbody>
+</table>
+</div>
+</section>
+</div>
+</main>
+</div>
+</div>
+
+</body></html>
