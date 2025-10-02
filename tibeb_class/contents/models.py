@@ -1,5 +1,4 @@
 from django.db import models
-from moviepy import VideoFileClip
 from datetime import timedelta
 import os
 from django.core.exceptions import ValidationError

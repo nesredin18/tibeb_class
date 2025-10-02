@@ -58,5 +58,5 @@ def distribute_notifications():
 def start():
     """Run distributor every 30 minutes."""
     scheduler = BackgroundScheduler()
-    scheduler.add_job(distribute_notifications, "interval", seconds=20)
+    scheduler.add_job(distribute_notifications, "interval", hours=10)
     scheduler.start()
