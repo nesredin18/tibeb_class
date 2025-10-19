@@ -1,0 +1,1 @@
+ffmpeg -i input.mp4 \ -hls_time 10 \ -hls_playlist_type vod \ -hls_segment_filename "segments/out_%03d.ts" \ -hls_key_info_file key_info.txt \ output.m3u8

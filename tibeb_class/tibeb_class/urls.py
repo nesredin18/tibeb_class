@@ -24,6 +24,8 @@ urlpatterns = [
     path('api/contents/', include('contents.urls')),
     path('api/subscription-plans/', include('subscription.urls')),
     path('api/notifications/', include('notifications.urls')),
+    path('api/config/', include('configuration.urls')),
+
 
 ]
 from django.conf import settings

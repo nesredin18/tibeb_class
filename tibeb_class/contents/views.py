@@ -500,7 +500,7 @@ def protected_book_stream(request, book_id):
     with open(file_path, 'rb') as f:
         file_data = f.read()
 
-    response = HttpResponse(file_data, content_type='application/octet-stream')
+    response = HttpResponse(file_data, content_type='application/pdf')
     response["X-Content-Type-Options"] = "nosniff"
     response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
     response["Pragma"] = "no-cache"
@@ -625,7 +625,7 @@ def get_video_playlist(request, video_id):
 
 
     # ✅ Send the updated playlist
-    response = HttpResponse(playlist_content, content_type="application/vnd.apple.mpegurl")
+    response = HttpResponse(playlist_content, content_type="application/vnd.apple.mpegurl;charset=utf-8")
     response["Content-Disposition"] = "inline"
     response["Cache-Control"] = "no-store"
     return response

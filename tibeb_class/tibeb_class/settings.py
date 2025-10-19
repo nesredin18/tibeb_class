@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-gvjj-s#onqj6vvtl7d7mmkscwr2b1s50@%y$c(#+-23$i@7fbi
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1"]
+ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2"]
 
 
 # Application definition
@@ -49,7 +49,9 @@ INSTALLED_APPS = [
     'contents',
     'corsheaders',
     #'channels',
-    'notifications',    
+    'notifications',
+    'configuration',
+    
     ]
 
 MIDDLEWARE = [
@@ -94,7 +96,12 @@ TEMPLATES = [
     },
 ]
 CORS_ALLOW_ALL_ORIGINS = True
+from corsheaders.defaults import default_headers
 
+CORS_ALLOW_HEADERS = list(default_headers) + [
+    "cache-control",
+    "pragma",
+]
 
 WSGI_APPLICATION = 'tibeb_class.wsgi.application'
 
@@ -182,7 +189,7 @@ FRONTEND_URL = "http://localhost:5173"
 BACKEND_URL=  "http://127.0.0.1:8000"
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Short for security
+    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=60),   # Short for security
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Can adjust per "remember me"
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
