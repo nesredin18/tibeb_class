@@ -7,7 +7,7 @@ class EmailTemplateHelper:
         logo = urljoin(settings.BACKEND_URL, static("emails/logo.png"))
 
         return f"""
-<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#FFF8DF;padding:0;font-family:Arial,sans-serif;">
+<table width="100%" cellpadding="0" cellspacing="0" style="background-color:#F8FAFC;padding:0;font-family:Arial,sans-serif;">
   <tr><td align="center" style="padding:16px 0;">
     <img src="{logo}" alt="Tibeb Class" style="height:40px;display:block;">
   </td></tr>
@@ -23,7 +23,7 @@ class EmailTemplateHelper:
 </table>"""
 
     @staticmethod
-    def verify_email_html(verification_link: str) -> str:
+    def verify_email_html(verification_code: str) -> str:
         header = EmailTemplateHelper._header()
         footer = EmailTemplateHelper._footer()
         content = f"""
@@ -35,10 +35,20 @@ class EmailTemplateHelper:
   Thanks for signing up! This is the confirmation code .
 </p>
 <div style="text-align:center;margin:24px 0 32px;">
-  <p style="background-color:#0C3F87;color:#FFFFFF;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:14px;display:inline-block;">
-    {verification_link}
+  <p style="background-color:#f5f7fb;
+            color:#0C3F87;
+            font-weight:bold;
+            font-size:22px;
+            letter-spacing:6px;
+            padding:14px 28px;
+            border-radius:8px;
+            display:inline-block;
+            border:2px solid #0C3F87;
+            font-family:'Courier New', monospace;">
+    {verification_code}
   </p>
 </div>
+
 
 
 <p style="color:#6b7280;font-size:12px;margin:0;">
@@ -71,12 +81,20 @@ class EmailTemplateHelper:
     We received a request to reset your password. Use the code below to reset your password.
     </p>
 
-    <div style="text-align:center;margin:24px 0 32px;">
-    <p
-        style="background-color:#0C3F87;color:#FFFFFF;text-decoration:none;padding:12px 24px;border-radius:6px;font-weight:bold;font-size:14px;display:inline-block;">
-{otp}
-            </p>
-    </div>
+<div style="text-align:center;margin:24px 0 32px;">
+  <p style="background-color:#f5f7fb;
+            color:#0C3F87;
+            font-weight:bold;
+            font-size:22px;
+            letter-spacing:6px;
+            padding:14px 28px;
+            border-radius:8px;
+            display:inline-block;
+            border:2px solid #0C3F87;
+            font-family:'Courier New', monospace;">
+    {otp}
+  </p>
+</div>
 
     <p style="color:#6b7280;font-size:12px;margin:0;">
     If you didn’t request a password reset, you can safely ignore this email.
