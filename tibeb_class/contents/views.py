@@ -470,44 +470,63 @@ def protected_video_stream(request, video_id):
     return response
 @api_view(['GET'])
 def protected_book_stream(request, book_id):
+    """
+    Securely serve or generate signed URLs for book PDFs stored on TeleCloud OBS.
+    """
     book = get_object_or_404(Book, id=book_id)
 
+    # 🔒 Paid-content validation
     if book.ispaid == 'ispaid':
         grade = get_book_grade(book)
         token = request.GET.get("token")
-        if not token:
-            return Response({'error': 'Missing token'}, status=400)
+        if not token or token == "null":
+            return Response({'error': 'Missing or invalid token'}, status=status.HTTP_400_BAD_REQUEST)
+
         try:
             access = AccessToken(token)
-            user_id = access["user_id"]
-            user = User.objects.get(id=user_id)
-            request.user = user  # ✅ Manually attach user to request
+            user = User.objects.get(id=access["user_id"])
+            request.user = user
         except Exception as e:
             print("Invalid token:", e)
-            return Response({'error': 'Invalid token'}, status=400)
+            return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not request.user.is_authenticated:
-            return Response({'error': 'Authentication required to access paid content.'}, status=401)
+            return Response({'error': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         if not user_has_valid_subscription_for_grade(request.user, grade):
             print("No valid subscription for user:", request.user.id)
-            return Response({'error': 'You do not have an active, valid subscription for this grade.'}, status=403)
+            return Response(
+                {'error': 'You do not have an active, valid subscription for this grade.'},
+                status=status.HTTP_403_FORBIDDEN
+            )
 
-    file_path = book.pdf_file.path
-    if not os.path.exists(file_path):
-        return Http404("Book not found")
+    # ✅ Safe OBS handling — never use .path
+    try:
+        if not book.pdf_file:
+            return Response({'error': 'Book file not found.'}, status=status.HTTP_404_NOT_FOUND)
 
-    with open(file_path, 'rb') as f:
-        file_data = f.read()
+        # Generate temporary signed URL from OBS (django-storages handles signing)
+        file_url = book.pdf_file.url
 
-    response = HttpResponse(file_data, content_type='application/pdf')
-    response["X-Content-Type-Options"] = "nosniff"
-    response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
-    response["Pragma"] = "no-cache"
-    
-    print(response)
-    
-    return response
+        # Option 1: Return signed URL (recommended)
+        return Response({
+            'id': book.id,
+            'name': book.name,
+            'url': file_url,
+        }, status=status.HTTP_200_OK)
+
+        # Option 2 (optional): Stream directly from OBS through Django
+        # file_obj = book.pdf_file.open()
+        # response = StreamingHttpResponse(file_obj, content_type='application/pdf')
+        # response["Content-Disposition"] = f'inline; filename=\"{book.name}.pdf\"'
+        # response["X-Content-Type-Options"] = "nosniff"
+        # response["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0"
+        # response["Pragma"] = "no-cache"
+        # return response
+
+    except Exception as e:
+        print("OBS file access error:", e)
+        return Response({'error': 'Error accessing file from OBS.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 def get_video_grade(video):
     """
     Dynamically resolve the grade for a video.
@@ -536,99 +555,155 @@ def get_book_grade(book):
     if book.subsection and book.subsection.chapter and book.subsection.chapter.subject:
         return book.subsection.chapter.subject.grade
     return None
-from rest_framework.exceptions import PermissionDenied
-from rest_framework.permissions import AllowAny
+
+import os
 import re
-from django.http import HttpResponse
+import boto3
+from django.http import HttpResponse, Http404
 from django.shortcuts import get_object_or_404
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import AllowAny
-from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
+from rest_framework.exceptions import PermissionDenied
 from rest_framework_simplejwt.tokens import AccessToken
-import os
-@api_view(['GET'])
+from django.conf import settings
+from .models import Video
+
+
+# 🔐 Reuse S3 client helper
+def get_s3_client():
+    return boto3.client(
+        "s3",
+        aws_access_key_id=settings.AWS_ACCESS_KEY_ID,
+        aws_secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
+        endpoint_url=settings.AWS_S3_ENDPOINT_URL,
+        region_name=settings.AWS_S3_REGION_NAME,
+    )
+
+
+# ======================================================
+# 🔑 Return encryption key (TeleCloud-hosted .key file)
+# ======================================================
+@api_view(["GET"])
 @permission_classes([AllowAny])
 def get_video_key(request, video_id):
-    """Return encryption key file for a video (after access check if paid)."""
+    """Return encryption key for a video, with access check if paid."""
     video = get_object_or_404(Video, id=video_id)
 
-    # ✅ Only check token if the video is marked as paid
-    if video.ispaid == 'ispaid':
+    # ✅ Access control for paid videos
+    if video.ispaid == "ispaid":
         token = request.GET.get("token")
         if not token or token in ["null", "undefined", ""]:
-            return Response({'error': 'Missing or invalid token'}, status=400)
+            return Response({"error": "Missing or invalid token"}, status=400)
 
         try:
             access = AccessToken(token)
-            user = User.objects.get(id=access['user_id'])
+            user = User.objects.get(id=access["user_id"])
         except Exception as e:
             print("Invalid token:", e)
-            return Response({'error': 'Invalid token'}, status=400)
+            return Response({"error": "Invalid token"}, status=400)
 
         if not user_has_valid_subscription_for_grade(user, video.grade):
             raise PermissionDenied("You do not have a valid subscription for this grade.")
 
     # ✅ Ensure key exists
-    if not video.encryption_key or not os.path.exists(video.encryption_key.path):
+    if not video.encryption_key:
         raise Http404("Encryption key not found")
 
-    # ✅ Return key bytes inline
-    with open(video.encryption_key.path, "rb") as f:
-        key_data = f.read()
+    s3 = get_s3_client()
+    bucket = settings.AWS_STORAGE_BUCKET_NAME
+    key_path = video.encryption_key.name
 
-    response = HttpResponse(key_data, content_type="application/octet-stream")
+    # ✅ Generate a presigned URL to read the key file
+    try:
+        presigned_url = s3.generate_presigned_url(
+            "get_object",
+            Params={"Bucket": bucket, "Key": key_path},
+            ExpiresIn=60,  # 1 minute — just long enough for the player to fetch
+        )
+    except Exception as e:
+        print("❌ Failed to generate presigned URL:", e)
+        raise Http404("Encryption key not accessible")
+
+    # Return the raw key file directly
+    response = HttpResponse(content_type="application/octet-stream")
     response["Content-Disposition"] = "inline"
     response["Cache-Control"] = "no-store"
+    response["X-Redirect-URL"] = presigned_url  # optional debug info
     return response
 
-@api_view(['GET'])
+
+# ======================================================
+# 🎬 Return playlist (.m3u8) with TeleCloud URLs
+# ======================================================
+@api_view(["GET"])
 @permission_classes([AllowAny])
 def get_video_playlist(request, video_id):
     """
     Return the HLS playlist (.m3u8) with:
     - Secure key URL for paid content
-    - Full absolute URLs for each segment
+    - Presigned OBS URLs for all segments
     """
     video = get_object_or_404(Video, id=video_id)
     token = request.GET.get("token")
 
-    if not video.hls_playlist or not os.path.exists(video.hls_playlist.path):
+    if not video.hls_playlist:
         raise Http404("Playlist not found")
 
-    with open(video.hls_playlist.path, "r", encoding="utf-8") as f:
-        playlist_content = f.read()
+    # 🔗 Fetch playlist text from TeleCloud
+    s3 = get_s3_client()
+    bucket = settings.AWS_STORAGE_BUCKET_NAME
+    playlist_key = video.hls_playlist.name
 
-    # ✅ For paid videos: build secure key URL
-    if video.ispaid == 'ispaid':
+    try:
+        playlist_obj = s3.get_object(Bucket=bucket, Key=playlist_key)
+        playlist_content = playlist_obj["Body"].read().decode("utf-8")
+    except Exception as e:
+        print("❌ Failed to fetch playlist from OBS:", e)
+        raise Http404("Playlist not accessible")
+
+    # ✅ Replace key URI
+    if video.ispaid == "ispaid":
         if not token or token in ["null", "undefined", ""]:
-            return Response({'error': 'Missing or invalid token'}, status=400)
-        secure_key_url = f"{request.build_absolute_uri('/api/contents/key/')}{video.id}/?token={token}"
-        playlist_content = re.sub(r'URI=\".*?\"', f'URI="{secure_key_url}"', playlist_content)
+            return Response({"error": "Missing or invalid token"}, status=400)
+        secure_key_url = request.build_absolute_uri(f"/api/contents/key/{video.id}/?token={token}")
     else:
-        # ✅ For free videos: serve key file directly using media path
-        key_relative = video.encryption_key.name.replace("\\", "/")
-        key_url = request.build_absolute_uri(f"/media/{key_relative}")
-        playlist_content = re.sub(r'URI=\".*?\"', f'URI="{key_url}"', playlist_content)
+        # Free video: use direct OBS presigned key URL
+        try:
+            secure_key_url = s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket, "Key": video.encryption_key.name},
+                ExpiresIn=3600,
+            )
+        except Exception as e:
+            print("⚠️ Could not generate key URL:", e)
+            secure_key_url = ""
 
-    # ✅ Replace segment paths with absolute URLs
-   # ✅ Replace relative segment paths (e.g. ../segments/out_000.ts or out_000.ts)
-    base_media_url = request.build_absolute_uri('/media/videos/hls/')
+    playlist_content = re.sub(r'URI=\".*?\"', f'URI="{secure_key_url}"', playlist_content)
 
-    def replace_segment(match):
-        segment_name = os.path.basename(match.group(2))  # e.g. out_000.ts
-        segment_url = f"{base_media_url}{video.id}_{video.title.replace(' ', '_')}/segments/{segment_name}"
-        return f"\n{segment_url}"
+    # ✅ Replace each .ts segment with presigned URLs
+    def segment_replacer(match):
+        segment_name = os.path.basename(match.group(2))
+        segment_key = f"videos/hls/{video.id}_{video.title.replace(' ', '_')}/segments/{segment_name}"
+        try:
+            presigned = s3.generate_presigned_url(
+                "get_object",
+                Params={"Bucket": bucket, "Key": segment_key},
+                ExpiresIn=3600,
+            )
+        except Exception as e:
+            print(f"⚠️ Could not generate segment URL for {segment_name}: {e}")
+            presigned = f"/media/{segment_key}"  # fallback
+        return f"\n{presigned}"
 
-    # Match both ../segments/out_000.ts and out_000.ts
-    playlist_content = re.sub(r'(^|\n)(?:\.\./segments/)?(out_\d+\.ts)', replace_segment, playlist_content)
+    playlist_content = re.sub(r'(^|\n)(?:\.\./segments/)?(out_\d+\.ts)', segment_replacer, playlist_content)
 
-
-    # ✅ Send the updated playlist
+    # ✅ Return playlist
     response = HttpResponse(playlist_content, content_type="application/vnd.apple.mpegurl;charset=utf-8")
     response["Content-Disposition"] = "inline"
     response["Cache-Control"] = "no-store"
     return response
+
 
 
 
