@@ -29,7 +29,7 @@ SECRET_KEY = 'django-insecure-gvjj-s#onqj6vvtl7d7mmkscwr2b1s50@%y$c(#+-23$i@7fbi
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2"]
+ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2","tibebclass.pythonanywhere.com"]
 
 
 # Application definition
@@ -188,11 +188,11 @@ EMAIL_HOST_USER = 'tibebclass@gmail.com'
 EMAIL_HOST_PASSWORD = 'ourc vyel vmec oios'
 DEFAULT_FROM_EMAIL = "Tibeb Class <tibebclass@gmail.com>"
 
-FRONTEND_URL = "http://localhost:5173"
-BACKEND_URL=  "http://127.0.0.1:8000"
+FRONTEND_URL = "https://tibeb-class.vercel.app"
+BACKEND_URL=  "https://tibebclass.pythonanywhere.com"
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(seconds=60),   # Short for security
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Short for security
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Can adjust per "remember me"
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
