@@ -163,8 +163,11 @@ STATIC_URL = '/static/'
 
 
 MEDIA_URL = '/media/'
+# --- Local storage for ZIPs only ---
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
-STATIC_ROOT = BASE_DIR / "staticfiles"
+LOCAL_FILE_STORAGE = "django.core.files.storage.FileSystemStorage"
+#MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
 STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
@@ -194,6 +197,26 @@ SIMPLE_JWT = {
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }
+
+# === TeleCloud OBS Storage Settings ===
+from django.core.files.storage import Storage
+
+DEFAULT_FILE_STORAGE = "configuration.storages_backends.TeleCloudOBSStorage"
+
+AWS_ACCESS_KEY_ID = "8HNOUA5GY9ZNWVPHUJMM"
+AWS_SECRET_ACCESS_KEY = "Rg1uVebTSYSTawXJcojAyWGjxrF74dzcizVI85QK"
+AWS_S3_ENDPOINT_URL = "https://obsv3.et-global-1.ethiotelecom.et"
+AWS_STORAGE_BUCKET_NAME = "tibebclass"
+AWS_S3_REGION_NAME = "et-global-1"
+
+# Prevent absolute path issues
+Storage.path = lambda self, name: name
+# === End TeleCloud OBS Storage Settings ===
+
+
+
+
+
 
 
 
