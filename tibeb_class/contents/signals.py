@@ -15,53 +15,58 @@ from datetime import timedelta
 
 import tempfile
 import requests
-@receiver(post_save, sender=Book)
-def extract_pdf_page_count_remote(sender, instance, created, **kwargs):
+@receiver(pre_save, sender=Book)
+def remember_old_pdf_file(sender, instance, **kwargs):
     """
-    Extract and update total PDF pages for both new and updated PDFs (even if remote).
+    Store the old PDF file name before save, so we can detect changes after saving.
+    """
+    if not instance.pk:
+        instance._old_pdf_name = None
+    else:
+        try:
+            old = sender.objects.get(pk=instance.pk)
+            instance._old_pdf_name = old.pdf_file.name if old.pdf_file else None
+        except sender.DoesNotExist:
+            instance._old_pdf_name = None
+
+
+@receiver(post_save, sender=Book)
+def extract_pdf_page_count_remote(sender, instance, **kwargs):
+    """
+    Extract and update total PDF pages when a PDF is created or replaced (even if remote).
     """
     if not instance.pdf_file:
-        print(" No PDF file attached — skipping page count.")
+        print("No PDF file attached — skipping page count.")
         return
 
     try:
-        # ✅ Determine if file changed (using DB lookup)
-        old_instance = sender.objects.filter(pk=instance.pk).first()
-        file_changed = False
+        new_name = instance.pdf_file.name
+        old_name = getattr(instance, "_old_pdf_name", None)
+        file_changed = new_name != old_name
 
-        if old_instance:
-            if hasattr(old_instance.pdf_file, "name") and hasattr(instance.pdf_file, "name"):
-                file_changed = old_instance.pdf_file.name != instance.pdf_file.name
-        else:
-            # New record
-            file_changed = True
-
-        # ✅ Skip if nothing changed and we already have total_pages
+        # Skip if unchanged and total_pages already exists
         if not file_changed and instance.total_pages:
-            print(f"Skipping {instance.name} — PDF unchanged ({instance.total_pages} pages).")
+            print(f"Skipping {instance.name} — same PDF ({instance.total_pages} pages).")
             return
 
-        # ✅ Build the PDF URL (Django storage handles OBS)
-        pdf_url = instance.pdf_file.url
-        print(f" Fetching PDF from: {pdf_url}")
+        print(f"Fetching PDF from: {instance.pdf_file.url}")
 
-        # ✅ Download temporarily
+        # Download temporarily
         with tempfile.NamedTemporaryFile(delete=True, suffix=".pdf") as tmp:
-            response = requests.get(pdf_url, timeout=30)
+            response = requests.get(instance.pdf_file.url, timeout=30)
             response.raise_for_status()
             tmp.write(response.content)
             tmp.flush()
 
-            # ✅ Extract pages
             with fitz.open(tmp.name) as doc:
                 total_pages = doc.page_count
-                print(f"extracted {total_pages} pages for {instance.name}")
+                print(f"Extracted {total_pages} pages for {instance.name}")
 
-                # ✅ Update safely without recursion
+                # Safe update (no recursion)
                 sender.objects.filter(pk=instance.pk).update(total_pages=total_pages)
 
     except Exception as e:
-        print(f"failed to extract PDF page count for {instance.name}: {e}")
+        print(f"Failed to extract PDF page count for {instance.name}: {e}")
 
 
 @receiver(m2m_changed, sender=Question.exercises.through)
