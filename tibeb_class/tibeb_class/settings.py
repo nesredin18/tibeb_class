@@ -13,7 +13,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
-
+import pymysql
+pymysql.install_as_MySQLdb()
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -115,7 +116,21 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.mysql',
+#        'NAME': 'tibebcxa_tibebclass_db',
+#        'USER': 'tibebcxa_nesrunas',  # Replace with your cPanel MySQL username
+#        'PASSWORD': 'Nesrunas18@',  # Replace with your MySQL password
+#        'HOST': 'localhost',  # cPanel MySQL host
+#        'PORT': '3306',  # Default MySQL port
+#        'OPTIONS': {
+#            'charset': 'utf8mb4',
+#            'use_unicode': True,
+#            'init_command': "SET NAMES 'utf8mb4';",
+#        },
+#    }
+#}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
