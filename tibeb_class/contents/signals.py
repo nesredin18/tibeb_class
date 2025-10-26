@@ -13,31 +13,60 @@ from datetime import timedelta
 
 
 
+import tempfile
+import requests
 @receiver(pre_save, sender=Book)
-def extract_pdf_page_count_pre_upload(sender, instance, **kwargs):
+def remember_old_pdf_file(sender, instance, **kwargs):
     """
-    Extract total pages before OBS upload to avoid remote download.
+    Store the old PDF file name before save, so we can detect changes after saving.
+    """
+    if not instance.pk:
+        instance._old_pdf_name = None
+    else:
+        try:
+            old = sender.objects.get(pk=instance.pk)
+            instance._old_pdf_name = old.pdf_file.name if old.pdf_file else None
+        except sender.DoesNotExist:
+            instance._old_pdf_name = None
+
+
+@receiver(post_save, sender=Book)
+def extract_pdf_page_count_remote(sender, instance, **kwargs):
+    """
+    Extract and update total PDF pages when a PDF is created or replaced (even if remote).
     """
     if not instance.pdf_file:
+        print("No PDF file attached — skipping page count.")
         return
 
     try:
-        if hasattr(instance.pdf_file, "temporary_file_path"):
-            local_pdf_path = instance.pdf_file.temporary_file_path()
-        elif hasattr(instance.pdf_file.file, "temporary_file_path"):
-            local_pdf_path = instance.pdf_file.file.temporary_file_path()
-        else:
-            return  # Already remote, skip
+        new_name = instance.pdf_file.name
+        old_name = getattr(instance, "_old_pdf_name", None)
+        file_changed = new_name != old_name
 
-        print(f"Reading PDF locally: {local_pdf_path}")
+        # Skip if unchanged and total_pages already exists
+        if not file_changed and instance.total_pages:
+            print(f"Skipping {instance.name} — same PDF ({instance.total_pages} pages).")
+            return
 
-        with fitz.open(local_pdf_path) as doc:
-            total_pages = doc.page_count
-            instance.total_pages = total_pages
-            print(f" Found {total_pages} pages pre-upload")
+        print(f"Fetching PDF from: {instance.pdf_file.url}")
+
+        # Download temporarily
+        with tempfile.NamedTemporaryFile(delete=True, suffix=".pdf") as tmp:
+            response = requests.get(instance.pdf_file.url, timeout=30)
+            response.raise_for_status()
+            tmp.write(response.content)
+            tmp.flush()
+
+            with fitz.open(tmp.name) as doc:
+                total_pages = doc.page_count
+                print(f"Extracted {total_pages} pages for {instance.name}")
+
+                # Safe update (no recursion)
+                sender.objects.filter(pk=instance.pk).update(total_pages=total_pages)
 
     except Exception as e:
-        print(f"Failed to extract PDF page count locally: {e}")
+        print(f"Failed to extract PDF page count for {instance.name}: {e}")
 
 
 @receiver(m2m_changed, sender=Question.exercises.through)
