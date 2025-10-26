@@ -29,15 +29,15 @@ def extract_pdf_page_count_pre_upload(sender, instance, **kwargs):
         else:
             return  # Already remote, skip
 
-        print(f"📘 Reading PDF locally: {local_pdf_path}")
+        print(f"Reading PDF locally: {local_pdf_path}")
 
         with fitz.open(local_pdf_path) as doc:
             total_pages = doc.page_count
             instance.total_pages = total_pages
-            print(f"✅ Found {total_pages} pages pre-upload")
+            print(f" Found {total_pages} pages pre-upload")
 
     except Exception as e:
-        print(f"⚠️ Failed to extract PDF page count locally: {e}")
+        print(f"Failed to extract PDF page count locally: {e}")
 
 
 @receiver(m2m_changed, sender=Question.exercises.through)
@@ -85,7 +85,7 @@ from .models import Video
 
 def get_obs_client():
     """Return initialized Huawei OBS client."""
-    print("🛰️ Initializing Huawei TeleCloud OBS client...")
+    print(" Initializing Huawei TeleCloud OBS client...")
     return ObsClient(
         access_key_id=settings.AWS_ACCESS_KEY_ID,
         secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
@@ -102,7 +102,7 @@ from obs import ObsClient
 
 def get_obs_client():
     """Return initialized Huawei OBS client."""
-    print("🛰️ Initializing Huawei TeleCloud OBS client...")
+    print("Initializing Huawei TeleCloud OBS client...")
     return ObsClient(
         access_key_id=settings.AWS_ACCESS_KEY_ID,
         secret_access_key=settings.AWS_SECRET_ACCESS_KEY,
@@ -113,20 +113,20 @@ def get_obs_client():
 def _extract_hls_zip_from_local(instance):
     """Extract locally stored HLS ZIP → upload segments → download playlist if needed →
        rewrite URLs → compute duration with ffprobe."""
-    print(f"\n🚀 Starting extraction for video: {instance.title} (ID={instance.id})")
+    print(f" Starting extraction for video: {instance.title} (ID={instance.id})")
 
     # 🛑 Prevent recursion (avoid infinite signal loops)
     if getattr(instance, "_skip_extraction", False):
-        print("⏭️ Skipping extraction (internal save).")
+        print("⏭Skipping extraction (internal save).")
         return
 
     if not instance.segments_zip:
-        print("⚠️ No ZIP file attached — skipping extraction.")
+        print(" No ZIP file attached — skipping extraction.")
         return
 
     local_zip_path = instance.segments_zip.path
     if not os.path.exists(local_zip_path):
-        print(f"❌ ZIP file not found at: {local_zip_path}")
+        print(f" ZIP file not found at: {local_zip_path}")
         return
 
     obs = get_obs_client()
@@ -135,37 +135,37 @@ def _extract_hls_zip_from_local(instance):
     segments_prefix = f"{base_prefix}/segments/"
 
     with tempfile.TemporaryDirectory() as tmpdir:
-        print(f"📂 Extracting ZIP into: {tmpdir}")
+        print(f" Extracting ZIP into: {tmpdir}")
 
         # --- Extract ZIP contents ---
         try:
             with zipfile.ZipFile(local_zip_path, "r") as zip_ref:
                 file_list = zip_ref.namelist()
-                print(f"📦 ZIP contains {len(file_list)} files.")
+                print(f" ZIP contains {len(file_list)} files.")
                 zip_ref.extractall(tmpdir)
         except zipfile.BadZipFile:
-            print("❌ Invalid ZIP file.")
+            print(" Invalid ZIP file.")
             return
         except Exception as e:
-            print(f"❌ Error extracting ZIP: {e}")
+            print(f" Error extracting ZIP: {e}")
             return
 
         # --- Clean old OBS segments ---
-        print(f"🧹 Cleaning old OBS segments under: {segments_prefix}")
+        print(f" Cleaning old OBS segments under: {segments_prefix}")
         try:
             resp = obs.listObjects(bucket, prefix=segments_prefix)
             if hasattr(resp, "body") and getattr(resp.body, "contents", None):
                 for obj in resp.body.contents:
-                    print(f"   🗑️ Deleting old object: {obj.key}")
+                    print(f"    Deleting old object: {obj.key}")
                     obs.deleteObject(bucket, obj.key)
             else:
-                print("   ℹ️ No old segments found.")
+                print(" No old segments found.")
         except Exception as e:
-            print(f"⚠️ Failed cleaning OBS: {e}")
+            print(f" Failed cleaning OBS: {e}")
 
         # --- Upload extracted files ---
         MAX_RETRIES, RETRY_DELAY = 3, 2
-        print("⬆️ Uploading extracted files to TeleCloud OBS...")
+        print(" Uploading extracted files to TeleCloud OBS...")
         uploaded_count = 0
 
         for root, _, files in os.walk(tmpdir):
@@ -205,17 +205,17 @@ def _extract_hls_zip_from_local(instance):
                         )
                         if resp.status < 300:
                             uploaded_count += 1
-                            print(f"✅ Uploaded {key} ({os.path.getsize(full_path)} bytes)")
+                            print(f" Uploaded {key} ({os.path.getsize(full_path)} bytes)")
                             break
                         raise Exception(f"Status {resp.status}: {resp.errorMessage}")
                     except Exception as e:
-                        print(f"⚠️ Upload attempt {attempt}/{MAX_RETRIES} failed for {f}: {e}")
+                        print(f" Upload attempt {attempt}/{MAX_RETRIES} failed for {f}: {e}")
                         if attempt < MAX_RETRIES:
                             time.sleep(RETRY_DELAY)
                         else:
-                            print(f"❌ Upload failed permanently for {f} after {MAX_RETRIES} retries.")
+                            print(f" Upload failed permanently for {f} after {MAX_RETRIES} retries.")
 
-        print(f"📊 Uploaded {uploaded_count} files successfully.")
+        print(f" Uploaded {uploaded_count} files successfully.")
 
         # --- Locate or download playlist ---
         playlist_files = [f for f in os.listdir(tmpdir) if f.endswith(".m3u8")]
@@ -223,22 +223,22 @@ def _extract_hls_zip_from_local(instance):
 
         if playlist_files:
             playlist_path = os.path.join(tmpdir, playlist_files[0])
-            print(f"🎞️ Found local playlist in ZIP: {playlist_path}")
+            print(f" Found local playlist in ZIP: {playlist_path}")
         elif instance.hls_playlist:
             # Download playlist from OBS via signed URL
-            print("🌐 Downloading playlist from OBS for duration analysis...")
+            print(" Downloading playlist from OBS for duration analysis...")
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".m3u8") as tmp_playlist:
                     urlretrieve(instance.hls_playlist.url, tmp_playlist.name)
                     playlist_path = tmp_playlist.name
-                    print(f"📥 Downloaded playlist from OBS: {playlist_path}")
+                    print(f" Downloaded playlist from OBS: {playlist_path}")
             except Exception as e:
-                print(f"⚠️ Failed to download playlist from OBS: {e}")
+                print(f" Failed to download playlist from OBS: {e}")
 
         # --- Compute duration using rewritten playlist ---
         if playlist_path and os.path.exists(playlist_path):
             try:
-                print("🔑 Rewriting playlist with signed URLs for ffprobe access...")
+                print(" Rewriting playlist with signed URLs for ffprobe access...")
                 playlist_text = open(playlist_path, "r", encoding="utf-8").read()
 
                 # 1️⃣ Replace encryption key URI with signed URL
@@ -267,7 +267,7 @@ def _extract_hls_zip_from_local(instance):
                     f.write(playlist_text)
 
                 # Run ffprobe
-                print("🎞️ Running ffprobe on rewritten playlist...")
+                print(" Running ffprobe on rewritten playlist...")
                 result = subprocess.run(
                     [
                         "ffprobe",
@@ -292,14 +292,14 @@ def _extract_hls_zip_from_local(instance):
                     instance._skip_extraction = True  # 🧠 prevent infinite signal loop
                     instance.save(update_fields=["duration"])
                     instance._skip_extraction = False
-                    print(f"✅ Duration extracted: {duration}")
+                    print(f" Duration extracted: {duration}")
                 else:
-                    print("⚠️ Duration could not be determined (empty result).")
+                    print(" Duration could not be determined (empty result).")
 
             except subprocess.CalledProcessError as e:
-                print(f"❌ ffprobe failed: {e.stderr}")
+                print(f" ffprobe failed: {e.stderr}")
             except Exception as e:
-                print(f"⚠️ Duration extraction error: {e}")
+                print(f" Duration extraction error: {e}")
             finally:
                 try:
                     os.remove(playlist_path)
@@ -308,7 +308,7 @@ def _extract_hls_zip_from_local(instance):
                 except Exception:
                     pass
         else:
-            print("⚠️ No playlist available for duration extraction.")
+            print(" No playlist available for duration extraction.")
 
     # --- Cleanup local ZIP ---
     try:
@@ -316,11 +316,11 @@ def _extract_hls_zip_from_local(instance):
         instance.segments_zip.delete(save=False)
         instance.segments_zip = None
         instance.save(update_fields=["segments_zip"])
-        print("🗑️ Local ZIP deleted and DB field cleared.")
+        print(" Local ZIP deleted and DB field cleared.")
     except Exception as e:
-        print(f"⚠️ Cleanup error: {e}")
+        print(f" Cleanup error: {e}")
 
-    print(f"✅ Extraction completed successfully for {instance.title}\n")
+    print(f" Extraction completed successfully for {instance.title}\n")
 
 
 # ====================================================
@@ -329,7 +329,7 @@ def _extract_hls_zip_from_local(instance):
 @receiver(post_save, sender=Video)
 def extract_hls_files(sender, instance, created, **kwargs):
     """Run extraction after ZIP file is saved locally."""
-    print(f"\n📡 [Signal] Extract HLS files for Video ID={instance.id}, Title={instance.title}")
+    print(f" [Signal] Extract HLS files for Video ID={instance.id}, Title={instance.title}")
     transaction.on_commit(lambda: _extract_hls_zip_from_local(instance))
 
 
@@ -339,10 +339,10 @@ def extract_hls_files(sender, instance, created, **kwargs):
 @receiver(post_save, sender=Video)
 def move_video_files(sender, instance, created, **kwargs):
     """Move HLS playlist and encryption key to final per-video folders."""
-    print(f"\n📡 [Signal] move_video_files for Video ID={instance.id}, Title={instance.title}")
+    print(f" [Signal] move_video_files for Video ID={instance.id}, Title={instance.title}")
 
     if not instance.id:
-        print("⚠️ Instance has no ID — skipping move.")
+        print(" Instance has no ID — skipping move.")
         return
 
     obs = get_obs_client()
@@ -355,14 +355,14 @@ def move_video_files(sender, instance, created, **kwargs):
         new_key = f"{base_prefix}/playlist/{os.path.basename(old_key)}"
         if old_key != new_key:
             try:
-                print(f"🎬 Moving playlist: {old_key} → {new_key}")
+                print(f" Moving playlist: {old_key} → {new_key}")
                 obs.copyObject(bucket, old_key, bucket, new_key)
                 obs.deleteObject(bucket, old_key)
                 instance.hls_playlist.name = new_key
                 instance.save(update_fields=["hls_playlist"])
-                print("✅ Playlist moved successfully.")
+                print(" Playlist moved successfully.")
             except Exception as e:
-                print(f"⚠️ Playlist move failed: {e}")
+                print(f" Playlist move failed: {e}")
 
     # 🔐 Key
     if instance.encryption_key:
@@ -370,13 +370,13 @@ def move_video_files(sender, instance, created, **kwargs):
         new_key = f"{base_prefix}/keys/{os.path.basename(old_key)}"
         if old_key != new_key:
             try:
-                print(f"🔐 Moving key: {old_key} → {new_key}")
+                print(f" Moving key: {old_key} → {new_key}")
                 obs.copyObject(bucket, old_key, bucket, new_key)
                 obs.deleteObject(bucket, old_key)
                 instance.encryption_key.name = new_key
                 instance.save(update_fields=["encryption_key"])
-                print("✅ Key moved successfully.")
+                print(" Key moved successfully.")
             except Exception as e:
-                print(f"⚠️ Key move failed: {e}")
+                print(f" Key move failed: {e}")
 
-    print(f"🏁 File organization completed for Video ID={instance.id}\n")
+    print(f" File organization completed for Video ID={instance.id}\n")

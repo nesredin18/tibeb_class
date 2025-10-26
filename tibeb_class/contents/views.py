@@ -622,7 +622,7 @@ def get_video_key(request, video_id):
             ExpiresIn=60,  # 1 minute — just long enough for the player to fetch
         )
     except Exception as e:
-        print("❌ Failed to generate presigned URL:", e)
+        print(" Failed to generate presigned URL:", e)
         raise Http404("Encryption key not accessible")
 
     # Return the raw key file directly
@@ -659,7 +659,7 @@ def get_video_playlist(request, video_id):
         playlist_obj = s3.get_object(Bucket=bucket, Key=playlist_key)
         playlist_content = playlist_obj["Body"].read().decode("utf-8")
     except Exception as e:
-        print("❌ Failed to fetch playlist from OBS:", e)
+        print(" Failed to fetch playlist from OBS:", e)
         raise Http404("Playlist not accessible")
 
     # ✅ Replace key URI
@@ -676,7 +676,7 @@ def get_video_playlist(request, video_id):
                 ExpiresIn=3600,
             )
         except Exception as e:
-            print("⚠️ Could not generate key URL:", e)
+            print(" Could not generate key URL:", e)
             secure_key_url = ""
 
     playlist_content = re.sub(r'URI=\".*?\"', f'URI="{secure_key_url}"', playlist_content)
@@ -692,7 +692,7 @@ def get_video_playlist(request, video_id):
                 ExpiresIn=3600,
             )
         except Exception as e:
-            print(f"⚠️ Could not generate segment URL for {segment_name}: {e}")
+            print(f" Could not generate segment URL for {segment_name}: {e}")
             presigned = f"/media/{segment_key}"  # fallback
         return f"\n{presigned}"
 

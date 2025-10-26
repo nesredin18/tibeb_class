@@ -49,7 +49,7 @@ def distribute_notifications():
             #     try:
             #         send_realtime_notification(uid, item.message)
             #     except Exception as e:
-            #         print(f"⚠️ WS send failed for user {uid}: {e}")
+            #         print(f" WS send failed for user {uid}: {e}")
 
             item.delete()
 

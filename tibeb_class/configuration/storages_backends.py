@@ -44,7 +44,7 @@ class TeleCloudOBSStorage(Storage):
     # === Core save() ===
     def _save(self, name, content):
         key = self._clean_name(name)
-        print(f"🚀 Saving to TeleCloud OBS: {key}")
+        print(f"Saving to TeleCloud OBS: {key}")
 
         if hasattr(content, "open"):
             try:
@@ -80,11 +80,11 @@ class TeleCloudOBSStorage(Storage):
             try:
                 resp = self.client.putContent(self.bucket_name, key, data, headers=headers)
                 if resp.status < 300:
-                    print(f"✅ Small file uploaded: {key} ({len(data)} bytes)")
+                    print(f"Small file uploaded: {key} ({len(data)} bytes)")
                     return key
                 raise Exception(f"Status {resp.status}: {resp.errorMessage}")
             except Exception as e:
-                print(f"⚠️ Upload attempt {attempt}/{self.max_retries} failed: {e}")
+                print(f"Upload attempt {attempt}/{self.max_retries} failed: {e}")
                 if attempt < self.max_retries:
                     time.sleep(self.retry_delay)
                 else:
@@ -107,7 +107,7 @@ class TeleCloudOBSStorage(Storage):
         content_type = self._get_content_type(key)
         part_size = 8 * 1024 * 1024  # 8 MB
         part_count = math.ceil(size / part_size)
-        print(f"📦 Large file detected ({size/1024/1024:.2f} MB) → manual multipart ({part_count} parts)")
+        print(f" Large file detected ({size/1024/1024:.2f} MB) → manual multipart ({part_count} parts)")
 
         upload_id = None
 
@@ -121,14 +121,14 @@ class TeleCloudOBSStorage(Storage):
             if init_resp.status >= 300:
                 raise Exception(f"Failed to initiate multipart upload: {init_resp.errorMessage}")
             upload_id = init_resp.body.uploadId
-            print(f"🆔 Multipart upload initiated: {upload_id}")
+            print(f"Multipart upload initiated: {upload_id}")
 
             parts = []
             with open(local_path, "rb") as f:
                 for part_number in range(1, part_count + 1):
                     offset = (part_number - 1) * part_size
                     current_part_size = min(part_size, size - offset)
-                    print(f"⬆️ Uploading part {part_number}/{part_count} (offset={offset}, size={current_part_size})...")
+                    print(f" Uploading part {part_number}/{part_count} (offset={offset}, size={current_part_size})...")
 
                     # Retry each part upload
                     for attempt in range(1, self.max_retries + 1):
@@ -148,14 +148,14 @@ class TeleCloudOBSStorage(Storage):
                                 break
                             raise Exception(f"Status {resp.status}: {resp.errorMessage}")
                         except Exception as e:
-                            print(f"⚠️ Part {part_number} attempt {attempt}/{self.max_retries} failed: {e}")
+                            print(f"Part {part_number} attempt {attempt}/{self.max_retries} failed: {e}")
                             if attempt < self.max_retries:
                                 time.sleep(self.retry_delay)
                             else:
                                 raise Exception(f"Failed to upload part {part_number} after {self.max_retries} retries")
 
             # 3️⃣ Complete multipart upload
-            print("🧩 Completing multipart upload...")
+            print("Completing multipart upload...")
             complete_parts = [model.CompletePart(partNum=p['partNumber'], etag=p['etag']) for p in parts]
             complete_request = model.CompleteMultipartUploadRequest(complete_parts)
 
@@ -168,11 +168,11 @@ class TeleCloudOBSStorage(Storage):
                         completeMultipartUploadRequest=complete_request,
                     )
                     if comp_resp.status < 300:
-                        print(f"✅ Large file successfully uploaded to OBS: {key}")
+                        print(f"Large file successfully uploaded to OBS: {key}")
                         break
                     raise Exception(f"Status {comp_resp.status}: {comp_resp.errorMessage}")
                 except Exception as e:
-                    print(f"⚠️ Completion attempt {attempt}/{self.max_retries} failed: {e}")
+                    print(f"Completion attempt {attempt}/{self.max_retries} failed: {e}")
                     if attempt < self.max_retries:
                         time.sleep(self.retry_delay)
                     else:
@@ -187,7 +187,7 @@ class TeleCloudOBSStorage(Storage):
                         objectKey=key,
                         uploadId=upload_id,
                     )
-                    print("🛑 Aborted multipart upload due to error.")
+                    print("Aborted multipart upload due to error.")
                 except Exception:
                     pass
             raise Exception(f"OBS multipart upload error: {e}")
@@ -228,6 +228,6 @@ class TeleCloudOBSStorage(Storage):
         key = self._clean_name(name)
         resp = self.client.deleteObject(self.bucket_name, key)
         if resp.status < 300:
-            print(f"🗑️ Deleted {key}")
+            print(f"Deleted {key}")
         else:
-            print(f"⚠️ Delete failed for {key}: {resp.errorMessage}")
+            print(f"Delete failed for {key}: {resp.errorMessage}")
