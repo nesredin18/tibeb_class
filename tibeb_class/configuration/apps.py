@@ -21,4 +21,4 @@ class ConfigurationConfig(AppConfig):
             # Replace the wrapped default_storage instance
             default_storage._wrapped = storage_class()
         except Exception as e:
-            print("⚠️ Could not rebind default storage:", e)
+            print("Could not rebind default storage:", e)

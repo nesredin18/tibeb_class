@@ -13,7 +13,8 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 import os
 from datetime import timedelta
-
+import pymysql
+pymysql.install_as_MySQLdb()
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -29,7 +30,7 @@ SECRET_KEY = 'django-insecure-gvjj-s#onqj6vvtl7d7mmkscwr2b1s50@%y$c(#+-23$i@7fbi
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2","tibebclass.pythonanywhere.com"]
+ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2","tibebclass.pythonanywhere.com","tibebclass.com","admin.tibebclass.com"]
 
 
 # Application definition
@@ -115,7 +116,21 @@ DATABASES = {
         'NAME': BASE_DIR / 'db.sqlite3',
     }
 }
-
+#DATABASES = {
+#    'default': {
+#        'ENGINE': 'django.db.backends.mysql',
+#        'NAME': 'tibebcxa_tibebclass_db',
+#        'USER': 'tibebcxa_nesrunas',  # Replace with your cPanel MySQL username
+#        'PASSWORD': 'Nesrunas18@',  # Replace with your MySQL password
+#        'HOST': 'localhost',  # cPanel MySQL host
+#        'PORT': '3306',  # Default MySQL port
+#        'OPTIONS': {
+#            'charset': 'utf8mb4',
+#            'use_unicode': True,
+#            'init_command': "SET NAMES 'utf8mb4';",
+#        },
+#    }
+#}
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
