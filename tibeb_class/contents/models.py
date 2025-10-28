@@ -224,7 +224,10 @@ class Option(models.Model):
     def __str__(self):
         return f"{self.text} ({'Correct' if self.is_correct else 'Wrong'})"
 
+from django.db import models
+from django.core.files.storage import FileSystemStorage
 
+local_storage = FileSystemStorage(location="media/videos/hls/zips")
 
 class Video(models.Model):
     Resource_Type = (
@@ -247,7 +250,12 @@ class Video(models.Model):
     uploaded_at = models.DateTimeField(auto_now_add=True)
     is_active = models.BooleanField(default=True)
 
-    segments_zip = models.FileField(upload_to='videos/hls/zips/', blank=True, null=True, help_text="Upload zipped HLS segments (.ts files)")
+    segments_zip = models.FileField(
+        upload_to="videos/hls/zips/",
+        storage=local_storage,  # ✅ store locally first
+        blank=True,
+        null=True
+    )
     hls_playlist = models.FileField(upload_to='videos/hls/playlists/', blank=True, null=True)
     encryption_key = models.FileField(upload_to='videos/hls/keys/', blank=True, null=True)
 

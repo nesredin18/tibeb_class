@@ -12,4 +12,4 @@ def send_realtime_notification(user_id, message):
             },
         )
     except Exception as e:
-        print(f"⚠️ Could not send real-time notification: {e}")
+        print(f" Could not send real-time notification: {e}")
