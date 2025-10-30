@@ -10,6 +10,7 @@ For the full list of settings and their values, see
 https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
+from email.utils import formataddr
 from pathlib import Path
 import os
 from datetime import timedelta
@@ -121,21 +122,7 @@ WSGI_APPLICATION = 'tibeb_class.wsgi.application'
 DATABASES = {
     'default': env.db('DATABASE_URL', default='mysql://myuser:mypassword@localhost:3306/myproject')
 }
-#DATABASES = {
-#    'default': {
-#        'ENGINE': 'django.db.backends.mysql',
-#        'NAME': 'tibebcxa_tibebclass_db',
-#        'USER': 'tibebcxa_nesrunas',  # Replace with your cPanel MySQL username
-#        'PASSWORD': 'Nesrunas18@',  # Replace with your MySQL password
-#        'HOST': 'localhost',  # cPanel MySQL host
-#        'PORT': '3306',  # Default MySQL port
-#        'OPTIONS': {
-#            'charset': 'utf8mb4',
-#            'use_unicode': True,
-#            'init_command': "SET NAMES 'utf8mb4';",
-#        },
-#    }
-#}
+
 
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
@@ -201,16 +188,20 @@ AFROMESSAGE_CALLBACK = "YOUR_CALLBACK"
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# ✅ cPanel SMTP Email Configuration
-EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
-EMAIL_HOST = 'mail.tibebclass.com'  # Outgoing server
-EMAIL_PORT = 465                    # SSL port
-EMAIL_USE_SSL = True                # Use SSL (secure)
-EMAIL_USE_TLS = False               # Don't enable TLS with SSL
-EMAIL_HOST_USER = 'no-reply@tibebclass.com'
-EMAIL_HOST_PASSWORD = 'Nesrunas18@'  # The password you set in cPanel
-from email.utils import formataddr
-DEFAULT_FROM_EMAIL = formataddr(("Tibeb Class", "no-reply@tibebclass.com"))
+# ✅ Email Configuration
+EMAIL_BACKEND = os.getenv("EMAIL_BACKEND", "django.core.mail.backends.smtp.EmailBackend")
+EMAIL_HOST = os.getenv("EMAIL_HOST")
+EMAIL_PORT = int(os.getenv("EMAIL_PORT", 587))
+EMAIL_USE_TLS = os.getenv("EMAIL_USE_TLS", "True") == "True"
+EMAIL_USE_SSL = os.getenv("EMAIL_USE_SSL", "False") == "True"
+EMAIL_HOST_USER = os.getenv("EMAIL_HOST_USER")
+EMAIL_HOST_PASSWORD = os.getenv("EMAIL_HOST_PASSWORD")
+
+# ✅ Properly formatted “From” address
+DEFAULT_FROM_EMAIL = formataddr((
+    os.getenv("EMAIL_FROM_NAME", "Tibeb Class"),
+    EMAIL_HOST_USER
+))
 
 FRONTEND_URL = "https://tibeb-class.vercel.app"
 BACKEND_URL=  "https://tibebclass.pythonanywhere.com"
