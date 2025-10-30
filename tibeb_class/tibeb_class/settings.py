@@ -209,7 +209,8 @@ EMAIL_USE_SSL = True                # Use SSL (secure)
 EMAIL_USE_TLS = False               # Don't enable TLS with SSL
 EMAIL_HOST_USER = 'no-reply@tibebclass.com'
 EMAIL_HOST_PASSWORD = 'Nesrunas18@'  # The password you set in cPanel
-DEFAULT_FROM_EMAIL = "Tibeb Class <no-reply@tibebclass.com>"
+from email.utils import formataddr
+DEFAULT_FROM_EMAIL = formataddr(("Tibeb Class", "no-reply@tibebclass.com"))
 
 FRONTEND_URL = "https://tibeb-class.vercel.app"
 BACKEND_URL=  "https://tibebclass.pythonanywhere.com"
