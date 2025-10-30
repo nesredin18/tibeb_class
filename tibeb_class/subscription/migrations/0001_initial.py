@@ -37,7 +37,7 @@ class Migration(migrations.Migration):
                 ('duration', models.PositiveIntegerField()),
                 ('is_active', models.BooleanField(default=True)),
                 ('expires', models.DateTimeField(blank=True, null=True)),
-                ('price', models.DecimalField(blank=True, decimal_places=2, max_digits=100, null=True)),
+                ('price', models.DecimalField(blank=True, decimal_places=2, max_digits=60, null=True)),
                 ('features', models.TextField(blank=True, null=True)),
                 ('rank', models.IntegerField(blank=True, null=True)),
                 ('isrecommended', models.BooleanField(blank=True, default=False, null=True)),

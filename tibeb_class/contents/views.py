@@ -7,6 +7,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from subscription.models import Payment
+from configuration.models import Configuration
 from tibeb_class.permissions import IsVerified
 from user.models import ExerciseProgress, QuestionProgress
 from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
@@ -185,6 +186,7 @@ def get_content_by_type_and_level(request):
     content_type = request.query_params.get('type')        # 'video', 'book', 'exercise'
     level = request.query_params.get('level')              # 'grade', 'subject', etc.
     parent_id = request.query_params.get('id')
+    config = Configuration.objects.first()
 
     if not content_type or not level or not parent_id:
         return Response({'error': 'Parameters "type", "level", and "id" are required.'}, status=400)
@@ -241,9 +243,11 @@ def get_content_by_type_and_level(request):
         if not grade:
             return Response({'error': 'Invalid level. Grade not found for the given content.'}, status=400)
 
+        # 🧠 Only check subscriptions if the feature toggle is enabled
+        if config and config.enable_subscription:
         # Now check if the user has a valid subscription for the extracted grade
-        if not user_has_valid_subscription_for_grade(request.user, grade):
-            return Response({'error': 'You do not have an active, valid subscription for this grade.'}, status=403)
+            if not user_has_valid_subscription_for_grade(request.user, grade):
+                return Response({'error': 'You do not have an active, valid subscription for this grade.'}, status=403)
     data = serializer_class(contents, many=True).data
     return Response({
         'level': level,
@@ -474,9 +478,10 @@ def protected_book_stream(request, book_id):
     Securely serve or generate signed URLs for book PDFs stored on TeleCloud OBS.
     """
     book = get_object_or_404(Book, id=book_id)
+    config = Configuration.objects.first()
 
     # 🔒 Paid-content validation
-    if book.ispaid == 'ispaid':
+    if book.ispaid == 'ispaid' and (config and config.enable_subscription):
         grade = get_book_grade(book)
         token = request.GET.get("token")
         if not token or token == "null":
@@ -487,14 +492,12 @@ def protected_book_stream(request, book_id):
             user = User.objects.get(id=access["user_id"])
             request.user = user
         except Exception as e:
-            print("Invalid token:", e)
             return Response({'error': 'Invalid token'}, status=status.HTTP_400_BAD_REQUEST)
 
         if not request.user.is_authenticated:
             return Response({'error': 'Authentication required.'}, status=status.HTTP_401_UNAUTHORIZED)
 
         if not user_has_valid_subscription_for_grade(request.user, grade):
-            print("No valid subscription for user:", request.user.id)
             return Response(
                 {'error': 'You do not have an active, valid subscription for this grade.'},
                 status=status.HTTP_403_FORBIDDEN
@@ -589,9 +592,10 @@ def get_s3_client():
 def get_video_key(request, video_id):
     """Return encryption key for a video, with access check if paid."""
     video = get_object_or_404(Video, id=video_id)
+    config = Configuration.objects.first()
 
     # ✅ Access control for paid videos
-    if video.ispaid == "ispaid":
+    if video.ispaid == "ispaid" and (config and config.enable_subscription):
         token = request.GET.get("token")
         if not token or token in ["null", "undefined", ""]:
             return Response({"error": "Missing or invalid token"}, status=400)
@@ -646,6 +650,7 @@ def get_video_playlist(request, video_id):
     """
     video = get_object_or_404(Video, id=video_id)
     token = request.GET.get("token")
+    config = Configuration.objects.first()
 
     if not video.hls_playlist:
         raise Http404("Playlist not found")
@@ -663,7 +668,7 @@ def get_video_playlist(request, video_id):
         raise Http404("Playlist not accessible")
 
     # ✅ Replace key URI
-    if video.ispaid == "ispaid":
+    if video.ispaid == "ispaid" and (config and config.enable_subscription):
         if not token or token in ["null", "undefined", ""]:
             return Response({"error": "Missing or invalid token"}, status=400)
         secure_key_url = request.build_absolute_uri(f"/api/contents/key/{video.id}/?token={token}")

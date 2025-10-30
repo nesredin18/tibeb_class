@@ -17,11 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import include, path, re_path
 from django.urls import include
+from django.views.generic import RedirectView
 
 from .view import serve_media
 
 urlpatterns = [
-    path('admin/', admin.site.urls),
+    path('admin', admin.site.urls),
+    path('', RedirectView.as_view(url='/admin', permanent=False)),  # ✅ 
     path('api/user/', include('user.urls')),
     path('api/contents/', include('contents.urls')),
     path('api/subscription-plans/', include('subscription.urls')),
@@ -37,4 +39,3 @@ urlpatterns = [
 #if settings.DEBUG:
     #urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
     #urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-

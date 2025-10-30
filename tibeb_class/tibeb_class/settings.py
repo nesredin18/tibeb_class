@@ -15,10 +15,19 @@ import os
 from datetime import timedelta
 import pymysql
 pymysql.install_as_MySQLdb()
+import environ
+import os
 
+# Initialise environment variables
+env = environ.Env(
+    DEBUG=(bool, False)
+)
+
+# Read .env file
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
+environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 
 
 # Quick-start development settings - unsuitable for production
@@ -28,7 +37,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 SECRET_KEY = 'django-insecure-gvjj-s#onqj6vvtl7d7mmkscwr2b1s50@%y$c(#+-23$i@7fbi'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = env('DEBUG')
 
 ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2","tibebclass.pythonanywhere.com","tibebclass.com","admin.tibebclass.com",'www.admin.tibebclass.com','www.tibebclass.com']
 
@@ -110,10 +119,7 @@ WSGI_APPLICATION = 'tibeb_class.wsgi.application'
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
-    }
+    'default': env.db('DATABASE_URL', default='mysql://myuser:mypassword@localhost:3306/myproject')
 }
 #DATABASES = {
 #    'default': {

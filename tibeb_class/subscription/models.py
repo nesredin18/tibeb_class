@@ -23,7 +23,7 @@ class SubscriptionPlan(models.Model):
     duration = models.PositiveIntegerField()
     is_active = models.BooleanField(default=True)
     expires= models.DateTimeField(blank=True,null=True)
-    price =models.DecimalField(blank=True,null=True,decimal_places=2,max_digits=100)
+    price =models.DecimalField(blank=True,null=True,decimal_places=2,max_digits=60)
     features = models.TextField(blank=True,null=True)
     rank = models.IntegerField(blank=True,null=True)
     isrecommended=models.BooleanField(blank=True,null=True,default=False)
