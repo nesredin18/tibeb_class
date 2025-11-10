@@ -207,8 +207,8 @@ FRONTEND_URL = "https://tibeb-class.vercel.app"
 BACKEND_URL=  "https://tibebclass.pythonanywhere.com"
 
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Short for security
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Can adjust per "remember me"
+    'ACCESS_TOKEN_LIFETIME': timedelta(minutes=1),   # Short for security
+    'REFRESH_TOKEN_LIFETIME': timedelta(minutes=1),     # Can adjust per "remember me"
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
 }

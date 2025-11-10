@@ -67,7 +67,7 @@ def login(request):
         refresh.set_exp(lifetime=timedelta(days=7))
         refresh.access_token.set_exp(lifetime=timedelta(days=1))
     else:
-        refresh.set_exp(lifetime=timedelta(hours=0))
+        refresh.set_exp(lifetime=timedelta(minutes=1))
         refresh.access_token.set_exp(lifetime=timedelta(minutes=1))
 
     user_serializer = UserSerializer(user)
