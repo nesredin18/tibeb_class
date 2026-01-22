@@ -30,43 +30,43 @@ def remember_old_pdf_file(sender, instance, **kwargs):
             instance._old_pdf_name = None
 
 
-@receiver(post_save, sender=Book)
-def extract_pdf_page_count_remote(sender, instance, **kwargs):
-    """
-    Extract and update total PDF pages when a PDF is created or replaced (even if remote).
-    """
-    if not instance.pdf_file:
-        print("No PDF file attached — skipping page count.")
-        return
-
-    try:
-        new_name = instance.pdf_file.name
-        old_name = getattr(instance, "_old_pdf_name", None)
-        file_changed = new_name != old_name
-
-        # Skip if unchanged and total_pages already exists
-        if not file_changed and instance.total_pages:
-            print(f"Skipping {instance.name} — same PDF ({instance.total_pages} pages).")
-            return
-
-        print(f"Fetching PDF from: {instance.pdf_file.url}")
-
-        # Download temporarily
-        with tempfile.NamedTemporaryFile(delete=True, suffix=".pdf") as tmp:
-            response = requests.get(instance.pdf_file.url, timeout=30)
-            response.raise_for_status()
-            tmp.write(response.content)
-            tmp.flush()
-
-            with fitz.open(tmp.name) as doc:
-                total_pages = doc.page_count
-                print(f"Extracted {total_pages} pages for {instance.name}")
-
-                # Safe update (no recursion)
-                sender.objects.filter(pk=instance.pk).update(total_pages=total_pages)
-
-    except Exception as e:
-        print(f"Failed to extract PDF page count for {instance.name}: {e}")
+# @receiver(post_save, sender=Book)
+# def extract_pdf_page_count_remote(sender, instance, **kwargs):
+#     """
+#     Extract and update total PDF pages when a PDF is created or replaced (even if remote).
+#     """
+#     if not instance.pdf_file:
+#         print("No PDF file attached — skipping page count.")
+#         return
+#
+#     try:
+#         new_name = instance.pdf_file.name
+#         old_name = getattr(instance, "_old_pdf_name", None)
+#         file_changed = new_name != old_name
+#
+#         # Skip if unchanged and total_pages already exists
+#         if not file_changed and instance.total_pages:
+#             print(f"Skipping {instance.name} — same PDF ({instance.total_pages} pages).")
+#             return
+#
+#         print(f"Fetching PDF from: {instance.pdf_file.url}")
+#
+#         # Download temporarily
+#         with tempfile.NamedTemporaryFile(delete=True, suffix=".pdf") as tmp:
+#             response = requests.get(instance.pdf_file.url, timeout=30)
+#             response.raise_for_status()
+#             tmp.write(response.content)
+#             tmp.flush()
+#
+#             with fitz.open(tmp.name) as doc:
+#                 total_pages = doc.page_count
+#                 print(f"Extracted {total_pages} pages for {instance.name}")
+#
+#                 # Safe update (no recursion)
+#                 sender.objects.filter(pk=instance.pk).update(total_pages=total_pages)
+#
+#     except Exception as e:
+#         print(f"Failed to extract PDF page count for {instance.name}: {e}")
 
 
 @receiver(m2m_changed, sender=Question.exercises.through)
@@ -264,80 +264,80 @@ def _extract_hls_zip_from_local(instance):
             except Exception as e:
                 print(f" Failed to download playlist from OBS: {e}")
 
-        # --- Compute duration using rewritten playlist ---
-        if playlist_path and os.path.exists(playlist_path):
-            try:
-                print(" Rewriting playlist with signed URLs for ffprobe access...")
-                playlist_text = open(playlist_path, "r", encoding="utf-8").read()
-
-                # 1️⃣ Replace encryption key URI with signed URL
-                if 'EXT-X-KEY' in playlist_text and instance.encryption_key:
-                    key_url = instance.encryption_key.url  # signed URL from storage
-                    playlist_text = re.sub(r'URI=\".*?\"', f'URI="{key_url}"', playlist_text)
-
-                # 2️⃣ Replace segment file names with signed URLs
-                segment_dir = f"videos/hls/{instance.id}_{instance.title.replace(' ', '_')}/segments/"
-                segment_resp = obs.listObjects(bucket, prefix=segment_dir)
-                if hasattr(segment_resp, "body") and getattr(segment_resp.body, "contents", None):
-                    for obj in segment_resp.body.contents:
-                        if obj.key.endswith(".ts"):
-                            seg_name = os.path.basename(obj.key)
-                            seg_url = obs.createSignedUrl(
-                                method="GET",
-                                bucketName=bucket,
-                                objectKey=obj.key,
-                                expires=600
-                            ).signedUrl
-                            playlist_text = playlist_text.replace(seg_name, seg_url)
-
-                # Write modified playlist for ffprobe
-                rewritten_path = playlist_path.replace(".m3u8", "_rewritten.m3u8")
-                with open(rewritten_path, "w", encoding="utf-8") as f:
-                    f.write(playlist_text)
-
-                # Run ffprobe
-                print(" Running ffprobe on rewritten playlist...")
-                result = subprocess.run(
-                    [
-                        "ffprobe",
-                        "-v", "error",
-                        "-allowed_extensions", "ALL",
-                        "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
-                        "-show_entries", "format=duration",
-                        "-of", "json",
-                        rewritten_path,
-                    ],
-                    stdout=subprocess.PIPE,
-                    stderr=subprocess.PIPE,
-                    text=True,
-                    check=True,
-                )
-
-                info = json.loads(result.stdout or "{}")
-                total_seconds = float(info.get("format", {}).get("duration", 0))
-                if total_seconds > 0:
-                    duration = timedelta(seconds=int(total_seconds))
-                    instance.duration = duration
-                    instance._skip_extraction = True  # 🧠 prevent infinite signal loop
-                    instance.save(update_fields=["duration"])
-                    instance._skip_extraction = False
-                    print(f" Duration extracted: {duration}")
-                else:
-                    print(" Duration could not be determined (empty result).")
-
-            except subprocess.CalledProcessError as e:
-                print(f" ffprobe failed: {e.stderr}")
-            except Exception as e:
-                print(f" Duration extraction error: {e}")
-            finally:
-                try:
-                    os.remove(playlist_path)
-                    if 'rewritten_path' in locals() and os.path.exists(rewritten_path):
-                        os.remove(rewritten_path)
-                except Exception:
-                    pass
-        else:
-            print(" No playlist available for duration extraction.")
+#         # --- Compute duration using rewritten playlist ---
+#         if playlist_path and os.path.exists(playlist_path):
+#             try:
+#                 print(" Rewriting playlist with signed URLs for ffprobe access...")
+#                 playlist_text = open(playlist_path, "r", encoding="utf-8").read()
+#
+#                 # 1️⃣ Replace encryption key URI with signed URL
+#                 if 'EXT-X-KEY' in playlist_text and instance.encryption_key:
+#                     key_url = instance.encryption_key.url  # signed URL from storage
+#                     playlist_text = re.sub(r'URI=\".*?\"', f'URI="{key_url}"', playlist_text)
+#
+#                 # 2️⃣ Replace segment file names with signed URLs
+#                 segment_dir = f"videos/hls/{instance.id}_{instance.title.replace(' ', '_')}/segments/"
+#                 segment_resp = obs.listObjects(bucket, prefix=segment_dir)
+#                 if hasattr(segment_resp, "body") and getattr(segment_resp.body, "contents", None):
+#                     for obj in segment_resp.body.contents:
+#                         if obj.key.endswith(".ts"):
+#                             seg_name = os.path.basename(obj.key)
+#                             seg_url = obs.createSignedUrl(
+#                                 method="GET",
+#                                 bucketName=bucket,
+#                                 objectKey=obj.key,
+#                                 expires=600
+#                             ).signedUrl
+#                             playlist_text = playlist_text.replace(seg_name, seg_url)
+#
+#                 # Write modified playlist for ffprobe
+#                 rewritten_path = playlist_path.replace(".m3u8", "_rewritten.m3u8")
+#                 with open(rewritten_path, "w", encoding="utf-8") as f:
+#                     f.write(playlist_text)
+#
+#                 # Run ffprobe
+#                 print(" Running ffprobe on rewritten playlist...")
+#                 result = subprocess.run(
+#                     [
+#                         "ffprobe",
+#                         "-v", "error",
+#                         "-allowed_extensions", "ALL",
+#                         "-protocol_whitelist", "file,http,https,tcp,tls,crypto",
+#                         "-show_entries", "format=duration",
+#                         "-of", "json",
+#                         rewritten_path,
+#                     ],
+#                     stdout=subprocess.PIPE,
+#                     stderr=subprocess.PIPE,
+#                     text=True,
+#                     check=True,
+#                 )
+#
+#                 info = json.loads(result.stdout or "{}")
+#                 total_seconds = float(info.get("format", {}).get("duration", 0))
+#                 if total_seconds > 0:
+#                     duration = timedelta(seconds=int(total_seconds))
+#                     instance.duration = duration
+#                     instance._skip_extraction = True  # 🧠 prevent infinite signal loop
+#                     instance.save(update_fields=["duration"])
+#                     instance._skip_extraction = False
+#                     print(f" Duration extracted: {duration}")
+#                 else:
+#                     print(" Duration could not be determined (empty result).")
+#
+#             except subprocess.CalledProcessError as e:
+#                 print(f" ffprobe failed: {e.stderr}")
+#             except Exception as e:
+#                 print(f" Duration extraction error: {e}")
+#             finally:
+#                 try:
+#                     os.remove(playlist_path)
+#                     if 'rewritten_path' in locals() and os.path.exists(rewritten_path):
+#                         os.remove(rewritten_path)
+#                 except Exception:
+#                     pass
+#         else:
+#             print(" No playlist available for duration extraction.")
 
     # --- Cleanup local ZIP ---
     try:
