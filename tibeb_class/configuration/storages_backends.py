@@ -107,7 +107,6 @@ class TeleCloudOBSStorage(Storage):
         content_type = self._get_content_type(key)
         part_size = 8 * 1024 * 1024  # 8 MB
         part_count = math.ceil(size / part_size)
-        print(f" Large file detected ({size/1024/1024:.2f} MB) → manual multipart ({part_count} parts)")
 
         upload_id = None
 
