@@ -40,10 +40,15 @@ SECRET_KEY = 'django-insecure-gvjj-s#onqj6vvtl7d7mmkscwr2b1s50@%y$c(#+-23$i@7fbi
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2","tibebclass.pythonanywhere.com","tibebclass.com","admin.tibebclass.com","www.admin.tibebclass.com","www.tibebclass.com","https://tibebclass.com","https://www.tibebclass.com"]
+ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2","tibebclass.pythonanywhere.com","tibebclass.com","admin.tibebclass.com","www.admin.tibebclass.com","www.tibebclass.com"]
 CORS_ALLOW_CREDENTIALS = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
-
+CORS_ALLOWED_ORIGINS = [
+    "https://tibebclass.com",
+    "https://www.tibebclass.com",
+    "http://tibebclass.com",
+    "http://www.tibebclass.com",
+]
 
 # Application definition
 
@@ -66,7 +71,6 @@ INSTALLED_APPS = [
     'configuration',
     
     ]
-SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware',
     'django.middleware.security.SecurityMiddleware',
