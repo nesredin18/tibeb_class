@@ -45,11 +45,11 @@ def distribute_notifications():
                 batch_size=1000,
             )
 
-            # for uid in user_ids:
-            #     try:
-            #         send_realtime_notification(uid, item.message)
-            #     except Exception as e:
-            #         print(f" WS send failed for user {uid}: {e}")
+            for uid in user_ids:
+                 try:
+                     send_realtime_notification(uid, item.message)
+                 except Exception as e:
+                     print(f" WS send failed for user {uid}: {e}")
 
             item.delete()
 
@@ -58,5 +58,5 @@ def distribute_notifications():
 def start():
     """Run distributor every 30 minutes."""
     scheduler = BackgroundScheduler()
-    scheduler.add_job(distribute_notifications, "interval", hours=10)
+    scheduler.add_job(distribute_notifications, "interval", minutes=5)
     scheduler.start()
