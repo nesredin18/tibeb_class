@@ -17,6 +17,7 @@ class CustomUser(AbstractUser):
     role = models.CharField(max_length=10, choices=ROLE_CHOICES, default='student')
     grades = models.ManyToManyField('contents.Grade', related_name='users', blank=True)
     is_verified = models.BooleanField(default=False)  # Add this line
+    fcm_token = models.TextField(blank=True, null=True)
     last_email_change = models.DateTimeField(null=True, blank=True, default=timezone.now)
     username_type = models.CharField(max_length=10, choices=UserName_Type, default='email')
     pending_username = models.CharField(max_length=255, blank=True, null=True)

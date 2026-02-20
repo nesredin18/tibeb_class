@@ -216,6 +216,8 @@ DEFAULT_FROM_EMAIL = formataddr((
 
 FRONTEND_URL = "https://tibeb-class.vercel.app"
 BACKEND_URL=  "https://tibebclass.pythonanywhere.com"
+FIREBASE_CREDENTIALS_PATH = env("FIREBASE_CREDENTIALS_PATH", default="")
+FIREBASE_CREDENTIALS_JSON = env("FIREBASE_CREDENTIALS_JSON", default="")
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Short for security

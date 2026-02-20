@@ -63,3 +63,19 @@ def mark_all_notifications_read(request):
         {"detail": f"{updated_count} notifications marked as read."},
         status=status.HTTP_200_OK,
     )
+
+
+@api_view(["POST"])
+@permission_classes([IsAuthenticated, IsVerified])
+def save_fcm_token(request):
+    token = request.data.get("fcm_token")
+    if token is None:
+        return Response(
+            {"detail": "fcm_token is required."},
+            status=status.HTTP_400_BAD_REQUEST,
+        )
+
+    token = str(token).strip()
+    request.user.fcm_token = token if token else None
+    request.user.save(update_fields=["fcm_token"])
+    return Response({"detail": "FCM token updated."}, status=status.HTTP_200_OK)
