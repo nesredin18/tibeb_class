@@ -48,6 +48,7 @@ CORS_ALLOWED_ORIGINS = [
     "https://www.tibebclass.com",
     "http://tibebclass.com",
     "http://www.tibebclass.com",
+    "http://localhost:5173",
 ]
 
 # Application definition
@@ -64,6 +65,7 @@ INSTALLED_APPS = [
     'subscription',
     'rest_framework',
     'rest_framework_simplejwt',
+    'import_export',
     'contents',
     'corsheaders',
     #'channels',
