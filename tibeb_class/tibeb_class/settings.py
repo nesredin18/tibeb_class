@@ -156,8 +156,8 @@ AUTH_PASSWORD_VALIDATORS = [
 AUTH_USER_MODEL = 'user.CustomUser'
 CHAPA_API_KEY ='CHASECK_TEST-dclCApwJ3rgnUr8BWje3efcVxFXaQPmG'
 CHAPA_INIT_URL = 'https://api.chapa.co/v1/transaction/initialize'
-CHAPA_CALLBACK_URL = 'https://tibebclass.pythonanywhere.com/api/payments/webhook/'
-DEFAULT_RETURN_URL = 'https://tibeb-class.vercel.app/'
+CHAPA_CALLBACK_URL = 'https://tibebclass.com/api/payments/webhook/'
+DEFAULT_RETURN_URL = 'https://tibebclass.com/'
 CHAPA_WEBHOOK_SECRET = 'your_webhook_secret'
 
 
@@ -194,6 +194,9 @@ AFROMESSAGE_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoiTW9pZ1NEZTljM2p3bl
 AFROMESSAGE_FROM = "e80ad9d8-adf3-463f-80f4-7c4b39f7f164"
 AFROMESSAGE_SENDER = "YOUR_SENDER_NAME"
 AFROMESSAGE_CALLBACK = "YOUR_CALLBACK"
+SMS_PROVIDER = env("SMS_PROVIDER", default="afromessage").strip().lower()
+SMS_ETHIOPIA_URL = env("SMS_ETHIOPIA_URL", default="https://smsethiopia.et/api/sms/send")
+SMS_ETHIOPIA_API_KEY = env("SMS_ETHIOPIA_API_KEY", default="")
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
@@ -214,8 +217,8 @@ DEFAULT_FROM_EMAIL = formataddr((
     EMAIL_HOST_USER
 ))
 
-FRONTEND_URL = "https://tibeb-class.vercel.app"
-BACKEND_URL=  "https://tibebclass.pythonanywhere.com"
+FRONTEND_URL = "https://tibebclass.com"
+BACKEND_URL=  "https://admin.tibebclass.com"
 FIREBASE_CREDENTIALS_PATH = env("FIREBASE_CREDENTIALS_PATH", default="")
 FIREBASE_CREDENTIALS_JSON = env("FIREBASE_CREDENTIALS_JSON", default="")
 
