@@ -1,4 +1,5 @@
 from django.contrib import admin
+from django.db.models import Q
 from import_export import fields, resources
 from import_export.admin import ImportExportModelAdmin
 from import_export.widgets import ManyToManyWidget
@@ -14,6 +15,164 @@ from .models import (
     Subsection,
     Video,
 )
+
+
+def _safe_int(value):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+class HierarchicalGradeFilter(admin.SimpleListFilter):
+    title = "grade"
+    parameter_name = "h_grade"
+
+    def lookups(self, request, model_admin):
+        grades = Grade.objects.order_by("rank", "name")
+        return [(str(g.id), g.name) for g in grades]
+
+    def queryset(self, request, queryset):
+        grade_id = _safe_int(self.value())
+        if not grade_id:
+            return queryset
+
+        model = queryset.model
+        if model in (Book, Video):
+            return queryset.filter(
+                Q(grade_id=grade_id)
+                | Q(subject__grade_id=grade_id)
+                | Q(chapter__subject__grade_id=grade_id)
+                | Q(subsection__chapter__subject__grade_id=grade_id)
+            )
+
+        if model is Exercise:
+            return queryset.filter(
+                Q(grades__id=grade_id)
+                | Q(subject__grade_id=grade_id)
+                | Q(chapter__subject__grade_id=grade_id)
+                | Q(subsection__chapter__subject__grade_id=grade_id)
+            ).distinct()
+
+        return queryset
+
+
+class HierarchicalSubjectFilter(admin.SimpleListFilter):
+    title = "subject"
+    parameter_name = "h_subject"
+
+    def lookups(self, request, model_admin):
+        subjects = Subject.objects.select_related("grade").order_by("grade__rank", "name")
+        grade_id = _safe_int(request.GET.get("h_grade"))
+        if grade_id:
+            subjects = subjects.filter(grade_id=grade_id)
+        return [(str(s.id), f"{s.name} ({s.grade.name})") for s in subjects]
+
+    def queryset(self, request, queryset):
+        subject_id = _safe_int(self.value())
+        if not subject_id:
+            return queryset
+
+        model = queryset.model
+        if model in (Book, Video):
+            return queryset.filter(
+                Q(subject_id=subject_id)
+                | Q(chapter__subject_id=subject_id)
+                | Q(subsection__chapter__subject_id=subject_id)
+            )
+
+        if model is Exercise:
+            return queryset.filter(
+                Q(subject_id=subject_id)
+                | Q(chapter__subject_id=subject_id)
+                | Q(subsection__chapter__subject_id=subject_id)
+            ).distinct()
+
+        return queryset
+
+
+class HierarchicalChapterFilter(admin.SimpleListFilter):
+    title = "chapter"
+    parameter_name = "h_chapter"
+
+    def lookups(self, request, model_admin):
+        chapters = Chapter.objects.select_related("subject", "subject__grade").order_by(
+            "subject__grade__rank",
+            "subject__name",
+            "chapter_number",
+            "title",
+        )
+        grade_id = _safe_int(request.GET.get("h_grade"))
+        subject_id = _safe_int(request.GET.get("h_subject"))
+
+        if grade_id:
+            chapters = chapters.filter(subject__grade_id=grade_id)
+        if subject_id:
+            chapters = chapters.filter(subject_id=subject_id)
+
+        return [
+            (str(c.id), f"{c.title} ({c.subject.name} / {c.subject.grade.name})")
+            for c in chapters
+        ]
+
+    def queryset(self, request, queryset):
+        chapter_id = _safe_int(self.value())
+        if not chapter_id:
+            return queryset
+
+        model = queryset.model
+        if model in (Book, Video):
+            return queryset.filter(Q(chapter_id=chapter_id) | Q(subsection__chapter_id=chapter_id))
+
+        if model is Exercise:
+            return queryset.filter(
+                Q(chapter_id=chapter_id) | Q(subsection__chapter_id=chapter_id)
+            ).distinct()
+
+        return queryset
+
+
+class HierarchicalSubsectionFilter(admin.SimpleListFilter):
+    title = "subsection"
+    parameter_name = "h_subsection"
+
+    def lookups(self, request, model_admin):
+        subsections = Subsection.objects.select_related(
+            "chapter",
+            "chapter__subject",
+            "chapter__subject__grade",
+        ).order_by(
+            "chapter__subject__grade__rank",
+            "chapter__subject__name",
+            "chapter__chapter_number",
+            "subsection_number",
+            "title",
+        )
+        grade_id = _safe_int(request.GET.get("h_grade"))
+        subject_id = _safe_int(request.GET.get("h_subject"))
+        chapter_id = _safe_int(request.GET.get("h_chapter"))
+
+        if grade_id:
+            subsections = subsections.filter(chapter__subject__grade_id=grade_id)
+        if subject_id:
+            subsections = subsections.filter(chapter__subject_id=subject_id)
+        if chapter_id:
+            subsections = subsections.filter(chapter_id=chapter_id)
+
+        return [
+            (
+                str(s.id),
+                f"{s.title} ({s.chapter.title} / {s.chapter.subject.name} / {s.chapter.subject.grade.name})",
+            )
+            for s in subsections
+        ]
+
+    def queryset(self, request, queryset):
+        subsection_id = _safe_int(self.value())
+        if not subsection_id:
+            return queryset
+
+        return queryset.filter(subsection_id=subsection_id)
 
 
 class OptionInline(admin.TabularInline):
@@ -117,10 +276,10 @@ class BookAdmin(admin.ModelAdmin):
         "type",
         "ispaid",
         "is_active",
-        "grade",
-        "subject",
-        "chapter",
-        "subsection",
+        HierarchicalGradeFilter,
+        HierarchicalSubjectFilter,
+        HierarchicalChapterFilter,
+        HierarchicalSubsectionFilter,
     )
 
 
@@ -144,10 +303,10 @@ class VideoAdmin(admin.ModelAdmin):
         "type",
         "ispaid",
         "is_active",
-        "grade",
-        "subject",
-        "chapter",
-        "subsection",
+        HierarchicalGradeFilter,
+        HierarchicalSubjectFilter,
+        HierarchicalChapterFilter,
+        HierarchicalSubsectionFilter,
         "uploaded_at",
     )
 
@@ -171,10 +330,10 @@ class ExerciseAdmin(admin.ModelAdmin):
         "type",
         "ispaid",
         "is_active",
-        "grades",
-        "subject",
-        "chapter",
-        "subsection",
+        HierarchicalGradeFilter,
+        HierarchicalSubjectFilter,
+        HierarchicalChapterFilter,
+        HierarchicalSubsectionFilter,
     )
 
 
