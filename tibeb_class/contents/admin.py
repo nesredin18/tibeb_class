@@ -98,13 +98,90 @@ class QuestionAdmin(ImportExportModelAdmin):
     exercise_list.short_description = "Exercises"
 
 
-admin.site.register(Video)
+@admin.register(Book)
+class BookAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "name",
+        "type",
+        "ispaid",
+        "grade",
+        "subject",
+        "chapter",
+        "subsection",
+        "is_active",
+        "total_pages",
+    )
+    search_fields = ("name", "description")
+    list_filter = (
+        "type",
+        "ispaid",
+        "is_active",
+        "grade",
+        "subject",
+        "chapter",
+        "subsection",
+    )
+
+
+@admin.register(Video)
+class VideoAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "title",
+        "type",
+        "ispaid",
+        "grade",
+        "subject",
+        "chapter",
+        "subsection",
+        "is_active",
+        "duration",
+        "uploaded_at",
+    )
+    search_fields = ("title", "description")
+    list_filter = (
+        "type",
+        "ispaid",
+        "is_active",
+        "grade",
+        "subject",
+        "chapter",
+        "subsection",
+        "uploaded_at",
+    )
+
+
+@admin.register(Exercise)
+class ExerciseAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "title",
+        "type",
+        "ispaid",
+        "subject",
+        "chapter",
+        "subsection",
+        "is_active",
+        "rank",
+        "total_exercise",
+    )
+    search_fields = ("title", "description")
+    list_filter = (
+        "type",
+        "ispaid",
+        "is_active",
+        "grades",
+        "subject",
+        "chapter",
+        "subsection",
+    )
+
+
 admin.site.register(Grade)
 admin.site.register(Subject)
 admin.site.register(Chapter)
 admin.site.register(Subsection)
-admin.site.register(Book)
-admin.site.register(Exercise)
 admin.site.register(Option)
 
 
