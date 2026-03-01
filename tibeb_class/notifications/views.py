@@ -22,12 +22,15 @@ def get_user_notifications(request):
     Get paginated notifications for the logged-in user.
     """
     notifications = Notification.objects.filter(user=request.user).order_by("-created_at")
+    unread_count = Notification.objects.filter(user=request.user, is_read=False).count()
 
     paginator = NotificationPagination()
     paginated_notifications = paginator.paginate_queryset(notifications, request)
 
     serializer = NotificationSerializer(paginated_notifications, many=True)
-    return paginator.get_paginated_response(serializer.data)
+    response = paginator.get_paginated_response(serializer.data)
+    response.data["unread_count"] = unread_count
+    return response
 
 
 @api_view(['POST'])
