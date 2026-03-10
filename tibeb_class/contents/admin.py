@@ -46,6 +46,15 @@ class HierarchicalGradeFilter(admin.SimpleListFilter):
                 | Q(subsection__chapter__subject__grade_id=grade_id)
             )
 
+        if model is Subject:
+            return queryset.filter(grade_id=grade_id)
+
+        if model is Chapter:
+            return queryset.filter(subject__grade_id=grade_id)
+
+        if model is Subsection:
+            return queryset.filter(chapter__subject__grade_id=grade_id)
+
         if model is Exercise:
             return queryset.filter(
                 Q(grades__id=grade_id)
@@ -80,6 +89,12 @@ class HierarchicalSubjectFilter(admin.SimpleListFilter):
                 | Q(chapter__subject_id=subject_id)
                 | Q(subsection__chapter__subject_id=subject_id)
             )
+
+        if model is Chapter:
+            return queryset.filter(subject_id=subject_id)
+
+        if model is Subsection:
+            return queryset.filter(chapter__subject_id=subject_id)
 
         if model is Exercise:
             return queryset.filter(
@@ -123,6 +138,9 @@ class HierarchicalChapterFilter(admin.SimpleListFilter):
         model = queryset.model
         if model in (Book, Video):
             return queryset.filter(Q(chapter_id=chapter_id) | Q(subsection__chapter_id=chapter_id))
+
+        if model is Subsection:
+            return queryset.filter(chapter_id=chapter_id)
 
         if model is Exercise:
             return queryset.filter(
@@ -337,10 +355,56 @@ class ExerciseAdmin(admin.ModelAdmin):
     )
 
 
-admin.site.register(Grade)
-admin.site.register(Subject)
-admin.site.register(Chapter)
-admin.site.register(Subsection)
+@admin.register(Grade)
+class GradeAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "rank", "is_active")
+    search_fields = ("name", "description")
+    list_filter = ("is_active",)
+
+
+@admin.register(Subject)
+class SubjectAdmin(admin.ModelAdmin):
+    list_display = ("id", "name", "grade", "rank", "is_active")
+    search_fields = ("name", "description", "grade__name")
+    list_filter = ("is_active", HierarchicalGradeFilter)
+
+
+@admin.register(Chapter)
+class ChapterAdmin(admin.ModelAdmin):
+    list_display = ("id", "title", "subject", "chapter_number", "rank", "is_active")
+    search_fields = ("title", "description", "subject__name", "subject__grade__name")
+    list_filter = (
+        "is_active",
+        HierarchicalGradeFilter,
+        HierarchicalSubjectFilter,
+    )
+
+
+@admin.register(Subsection)
+class SubsectionAdmin(admin.ModelAdmin):
+    list_display = (
+        "id",
+        "title",
+        "chapter",
+        "subsection_number",
+        "rank",
+        "is_active",
+    )
+    search_fields = (
+        "title",
+        "description",
+        "chapter__title",
+        "chapter__subject__name",
+        "chapter__subject__grade__name",
+    )
+    list_filter = (
+        "is_active",
+        HierarchicalGradeFilter,
+        HierarchicalSubjectFilter,
+        HierarchicalChapterFilter,
+    )
+
+
 admin.site.register(Option)
 
 
