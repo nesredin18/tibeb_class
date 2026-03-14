@@ -51,15 +51,16 @@ ALLOWED_HOSTS = [
     "www.admin.tibebclass.com",
     "www.tibebclass.com",
     "api.tibebclass.com",
-    "exams.tibebclass.com",
-    "api.exams.tibebclass.com",
+    "exam.tibebclass.com",
+    "admin.exam.tibebclass.com",
 ]
 CORS_ALLOW_CREDENTIALS = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CORS_ALLOWED_ORIGINS = [
     "https://tibebclass.com",
     "https://www.tibebclass.com",
-    "https://exams.tibebclass.com",
+    "https://exam.tibebclass.com",
+    "https://admin.exam.tibebclass.com",
     "http://tibebclass.com",
     "http://www.tibebclass.com",
     "http://localhost:5173",
@@ -234,8 +235,8 @@ DEFAULT_FROM_EMAIL = formataddr((
 
 FRONTEND_URL = env("FRONTEND_URL", default="https://tibebclass.com")
 BACKEND_URL = env("BACKEND_URL", default="https://admin.tibebclass.com")
-EXAMS_FRONTEND_URL = env("EXAMS_FRONTEND_URL", default="https://exams.tibebclass.com")
-EXAMS_BACKEND_URL = env("EXAMS_BACKEND_URL", default="https://api.exams.tibebclass.com")
+EXAMS_FRONTEND_URL = env("EXAMS_FRONTEND_URL", default="https://exam.tibebclass.com")
+EXAMS_BACKEND_URL = env("EXAMS_BACKEND_URL", default="https://api.exam.tibebclass.com")
 FIREBASE_CREDENTIALS_PATH = env("FIREBASE_CREDENTIALS_PATH", default="")
 FIREBASE_CREDENTIALS_JSON = env("FIREBASE_CREDENTIALS_JSON", default="")
 
