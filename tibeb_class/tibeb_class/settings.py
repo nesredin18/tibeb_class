@@ -40,15 +40,30 @@ SECRET_KEY = 'django-insecure-gvjj-s#onqj6vvtl7d7mmkscwr2b1s50@%y$c(#+-23$i@7fbi
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
 
-ALLOWED_HOSTS = ["tibeb-class.onrender.com", "localhost", "127.0.0.1","10.0.2.2","tibebclass.pythonanywhere.com","tibebclass.com","admin.tibebclass.com","www.admin.tibebclass.com","www.tibebclass.com"]
+ALLOWED_HOSTS = [
+    "tibeb-class.onrender.com",
+    "localhost",
+    "127.0.0.1",
+    "10.0.2.2",
+    "tibebclass.pythonanywhere.com",
+    "tibebclass.com",
+    "admin.tibebclass.com",
+    "www.admin.tibebclass.com",
+    "www.tibebclass.com",
+    "api.tibebclass.com",
+    "exams.tibebclass.com",
+    "api.exams.tibebclass.com",
+]
 CORS_ALLOW_CREDENTIALS = True
 SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
 CORS_ALLOWED_ORIGINS = [
     "https://tibebclass.com",
     "https://www.tibebclass.com",
+    "https://exams.tibebclass.com",
     "http://tibebclass.com",
     "http://www.tibebclass.com",
     "http://localhost:5173",
+    "http://localhost:5174",
 ]
 
 # Application definition
@@ -217,16 +232,32 @@ DEFAULT_FROM_EMAIL = formataddr((
     EMAIL_HOST_USER
 ))
 
-FRONTEND_URL = "https://tibebclass.com"
-BACKEND_URL=  "https://admin.tibebclass.com"
+FRONTEND_URL = env("FRONTEND_URL", default="https://tibebclass.com")
+BACKEND_URL = env("BACKEND_URL", default="https://admin.tibebclass.com")
+EXAMS_FRONTEND_URL = env("EXAMS_FRONTEND_URL", default="https://exams.tibebclass.com")
+EXAMS_BACKEND_URL = env("EXAMS_BACKEND_URL", default="https://api.exams.tibebclass.com")
 FIREBASE_CREDENTIALS_PATH = env("FIREBASE_CREDENTIALS_PATH", default="")
 FIREBASE_CREDENTIALS_JSON = env("FIREBASE_CREDENTIALS_JSON", default="")
+
+JWT_ALGORITHM = env("JWT_ALGORITHM", default="HS256")
+JWT_ISSUER = env("JWT_ISSUER", default="https://api.tibebclass.com")
+JWT_AUDIENCE = env("JWT_AUDIENCE", default="tibeb-platform")
+JWT_PRIVATE_KEY = env("JWT_PRIVATE_KEY", default="")
+JWT_PUBLIC_KEY = env("JWT_PUBLIC_KEY", default="")
+JWT_SIGNING_KEY = JWT_PRIVATE_KEY or env("JWT_SIGNING_KEY", default=SECRET_KEY)
+JWT_VERIFYING_KEY = JWT_PUBLIC_KEY or env("JWT_VERIFYING_KEY", default="")
 
 SIMPLE_JWT = {
     'ACCESS_TOKEN_LIFETIME': timedelta(minutes=60),   # Short for security
     'REFRESH_TOKEN_LIFETIME': timedelta(days=1),     # Can adjust per "remember me"
     'ROTATE_REFRESH_TOKENS': True,
     'BLACKLIST_AFTER_ROTATION': True,
+    'ALGORITHM': JWT_ALGORITHM,
+    'SIGNING_KEY': JWT_SIGNING_KEY,
+    'VERIFYING_KEY': JWT_VERIFYING_KEY,
+    'ISSUER': JWT_ISSUER,
+    'AUDIENCE': JWT_AUDIENCE,
+    'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
 # === TeleCloud OBS Storage Settings ===

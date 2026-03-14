@@ -1,6 +1,6 @@
 from django.urls import path
 from .views import change_password, reset_password, send_password_reset_code, signup, login, test,verify_username
-from .views import get_user_info, get_pending_requests, get_accepted_requests
+from .views import get_identity_me, get_user_info, get_pending_requests, get_accepted_requests, lookup_user_by_identifier
 from .views import aggregated_progress_chapter_level
 from .views import start_grade,user_grade,aggregated_progress_per_grade,aggregated_progress_chapter_level,aggregated_progress_subject_level,aggregated_progress_subsection_level
 from .views import update_user,get_user_info, add_child_account, respond_to_parent_request
@@ -29,6 +29,8 @@ urlpatterns = [
     path('update/', update_user, name='update-user'),
     path('login/', login, name='login'),
     path('',get_user_info, name='user-info'),
+    path('identity/me/', get_identity_me, name='identity-me'),
+    path('identity/lookup/', lookup_user_by_identifier, name='identity-lookup'),
     path('add-child-account/', add_child_account, name='add-child-account'),
     path('test/', test, name='test'),
     path('user/info/', get_user_info, name='user-info'),

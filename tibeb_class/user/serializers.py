@@ -47,3 +47,44 @@ class UserUpdateSerializer(serializers.ModelSerializer):
             'grades', 'first_name', 'last_name'
         ]
 
+
+class UserIdentitySerializer(serializers.ModelSerializer):
+    email = serializers.SerializerMethodField()
+    phone_number = serializers.SerializerMethodField()
+    grades = serializers.SerializerMethodField()
+    external_user_id = serializers.IntegerField(source='id', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id',
+            'external_user_id',
+            'username',
+            'email',
+            'phone_number',
+            'role',
+            'first_name',
+            'last_name',
+            'username_type',
+            'is_verified',
+            'grades',
+        ]
+
+    def get_email(self, obj):
+        if obj.email:
+            return obj.email
+        if obj.username_type == 'email':
+            return obj.username
+        return None
+
+    def get_phone_number(self, obj):
+        phone_number = getattr(obj, 'phone_number', None)
+        if phone_number:
+            return phone_number
+        if obj.username_type == 'phone':
+            return obj.username
+        return None
+
+    def get_grades(self, obj):
+        return list(obj.grades.values_list('id', flat=True))
+

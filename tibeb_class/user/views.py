@@ -12,7 +12,7 @@ from rest_framework import status
 from tibeb_class.sms_templates import SMSTemplateHelper
 from tibeb_class.permissions import IsVerified
 from user.utils import send_sms_otp
-from .serializers import UserSerializer, UserUpdateSerializer
+from .serializers import UserIdentitySerializer, UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
 from .models import BookProgress, ChangeUserNameOTP, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, PasswordResetOTP, PhoneOTP, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
@@ -45,6 +45,32 @@ from django.core.exceptions import ValidationError
 
 User = get_user_model()
 
+
+def build_token_pair(user, remember_me=False):
+    refresh = RefreshToken.for_user(user)
+
+    # Keep shared claims stable so downstream services can validate and trust them.
+    refresh["sub"] = str(user.id)
+    refresh["iss"] = settings.SIMPLE_JWT.get("ISSUER")
+    refresh["aud"] = settings.SIMPLE_JWT.get("AUDIENCE")
+    refresh["platform"] = "tibebclass"
+    refresh["role"] = user.role
+    refresh["username_type"] = user.username_type
+    refresh["is_verified"] = user.is_verified
+
+    if remember_me:
+        refresh.set_exp(lifetime=timedelta(days=7))
+        refresh.access_token.set_exp(lifetime=timedelta(days=1))
+    else:
+        refresh.set_exp(lifetime=timedelta(hours=24))
+        refresh.access_token.set_exp(lifetime=timedelta(minutes=180))
+
+    return refresh
+
+
+def get_user_identity_payload(user):
+    return UserIdentitySerializer(user).data
+
 # Create your views here.
 @api_view(['POST'])
 def login(request):
@@ -59,23 +85,12 @@ def login(request):
     if not user.is_verified:
         return Response({'error': 'Account not verified. Please verify your account.'}, status=status.HTTP_403_FORBIDDEN)
 
-    # Create a refresh token
-    refresh = RefreshToken.for_user(user)
-
-    # Adjust expiration based on remember_me flag
-    if remember_me:
-        refresh.set_exp(lifetime=timedelta(days=7))
-        refresh.access_token.set_exp(lifetime=timedelta(days=1))
-    else:
-        refresh.set_exp(lifetime=timedelta(hours=24))
-        refresh.access_token.set_exp(lifetime=timedelta(minutes=180))
-
-    user_serializer = UserSerializer(user)
+    refresh = build_token_pair(user, remember_me=remember_me)
 
     return Response({
         'token': str(refresh.access_token),
         'refresh': str(refresh),
-        'user': user_serializer.data
+        'user': get_user_identity_payload(user)
     }, status=status.HTTP_200_OK)
 def is_strong_password(password):
     return (
@@ -660,18 +675,28 @@ def unlink_child(request):
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsVerified])
 def get_user_info(request):
-    user = request.user
-    return Response({
-        'id': user.id,
-        'username': user.username,
-        'email': user.email,
-        'role': user.role,
-        'first_name': user.first_name,
-        'last_name': user.last_name,
-        'phone_number': user.phone_number,
-        'grades': [grade.id for grade in user.grades.all()],
+    return Response(get_user_identity_payload(request.user), status=200)
 
-    }, status=200)
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsVerified])
+def get_identity_me(request):
+    return Response(get_user_identity_payload(request.user), status=200)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated, IsVerified])
+def lookup_user_by_identifier(request):
+    identifier = (request.query_params.get('identifier') or '').strip()
+    if not identifier:
+        return Response({'error': 'identifier is required.'}, status=400)
+
+    try:
+        user = CustomUser.objects.get(username=identifier, is_verified=True)
+    except CustomUser.DoesNotExist:
+        return Response({'error': 'User not found.'}, status=404)
+
+    return Response(get_user_identity_payload(user), status=200)
 
 @api_view(['GET'])
 @permission_classes([IsAuthenticated, IsVerified])
