@@ -7,6 +7,9 @@ from .views import (
     get_active_subscriptions,
     get_payment_settings,
     upload_receipt,
+    receipt_admin_login,
+    assigned_receipts,
+    review_receipt,
 )
 
 urlpatterns = [
@@ -15,6 +18,9 @@ urlpatterns = [
     path('custome-subscription-price', calculate_subscription_price, name='calculate_subscription_price'),
     path('initialize-payment', initialize_payment, name='initialize_payment'),
     path('upload-receipt/', upload_receipt, name='upload_receipt'),
+    path('admin-ui/login/', receipt_admin_login, name='receipt_admin_login'),
+    path('admin-ui/receipts/', assigned_receipts, name='assigned_receipts'),
+    path('admin-ui/receipts/<int:payment_id>/review/', review_receipt, name='review_receipt'),
     path('chapa-webhook/', chapa_webhook, name='chapa_webhook'),
     path('active-subscriptions/', get_active_subscriptions, name='get_active_subscriptions'),
 

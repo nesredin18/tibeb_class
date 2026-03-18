@@ -2,6 +2,8 @@ from datetime import timedelta
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
+from django.contrib.auth import authenticate
 
 from contents.models import Grade
 from tibeb_class.permissions import IsVerified
@@ -13,6 +15,8 @@ from .serializers import (
     SubscriptionPlanSerializer,
     SubscriptionPaymentConfigurationSerializer,
     SubscriptionReceiptAdminProfileSerializer,
+    SubscriptionReceiptAdminLoginSerializer,
+    SubscriptionReceiptReviewSerializer,
     UploadSubscriptionReceiptSerializer,
 )
 from rest_framework import status
@@ -105,6 +109,25 @@ def _pick_receipt_admin():
         return None
     receipt_count = Payment.objects.filter(provider='receipt').count()
     return profiles[receipt_count % len(profiles)].user
+
+
+def _build_receipt_admin_token(user):
+    refresh = RefreshToken.for_user(user)
+    refresh["iss"] = settings.SIMPLE_JWT.get("ISSUER")
+    refresh["aud"] = settings.SIMPLE_JWT.get("AUDIENCE")
+    refresh["platform"] = "tibebclass-receipt-admin"
+    return {
+        "token": str(refresh.access_token),
+        "refresh": str(refresh),
+    }
+
+
+def _is_receipt_manager(user):
+    return bool(
+        getattr(user, "is_staff", False)
+        or getattr(user, "is_superuser", False)
+        or hasattr(user, "subscription_receipt_admin_profile")
+    )
 
 
 @api_view(['GET'])
@@ -326,6 +349,71 @@ def upload_receipt(request):
     payment.receipt_uploaded_at = timezone.now()
     payment.save(update_fields=['receipt_file', 'receipt_uploaded_at'])
     return Response({'message': 'Receipt uploaded successfully.', 'payment': PaymentSerializer(payment).data})
+
+
+@api_view(['POST'])
+def receipt_admin_login(request):
+    serializer = SubscriptionReceiptAdminLoginSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    user = authenticate(
+        username=serializer.validated_data['username'],
+        password=serializer.validated_data['password'],
+    )
+    if not user:
+        return Response({'error': 'Invalid credentials'}, status=400)
+    if not _is_receipt_manager(user):
+        return Response({'error': 'You are not assigned as a receipt manager.'}, status=403)
+    tokens = _build_receipt_admin_token(user)
+    return Response({
+        **tokens,
+        'user': {
+            'id': user.id,
+            'username': user.username,
+        },
+    })
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def assigned_receipts(request):
+    if not _is_receipt_manager(request.user):
+        return Response({'error': 'Not authorized.'}, status=403)
+    receipts = Payment.objects.filter(
+        provider='receipt',
+        assigned_admin=request.user,
+    ).order_by('-receipt_uploaded_at', '-created_at')
+    return Response(PaymentSerializer(receipts, many=True).data)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated])
+def review_receipt(request, payment_id):
+    if not _is_receipt_manager(request.user):
+        return Response({'error': 'Not authorized.'}, status=403)
+    serializer = SubscriptionReceiptReviewSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    payment = Payment.objects.filter(id=payment_id, provider='receipt', assigned_admin=request.user).first()
+    if not payment:
+        return Response({'error': 'Receipt payment not found.'}, status=404)
+
+    action = serializer.validated_data['action']
+    note = serializer.validated_data.get('note', '')
+
+    payment.reviewed_by = request.user
+    payment.review_note = note
+    payment.reviewed_at = timezone.now()
+
+    if action == 'approve':
+        payment.payment_status = 'completed'
+        payment.status = 'active' if payment.start_date <= timezone.now() else 'pending'
+    else:
+        payment.payment_status = 'failed'
+
+    payment.save(update_fields=['payment_status', 'status', 'reviewed_by', 'review_note', 'reviewed_at'])
+    return Response({
+        'message': f'Receipt {action}d successfully.',
+        'payment': PaymentSerializer(payment).data,
+    })
 
 
 CHAPA_WEBHOOK_SECRET = settings.CHAPA_WEBHOOK_SECRET  # store in .env
