@@ -8,7 +8,7 @@ from django.contrib.auth import authenticate
 from contents.models import Grade
 from tibeb_class.permissions import IsVerified
 from user.models import CustomUser, ParentChild
-from .models import Payment, SubscriptionPlan,SubscriptionPlanPricing, SubscriptionPaymentConfiguration, SubscriptionReceiptAdminProfile
+from .models import Payment, SubscriptionPlan,SubscriptionPlanPricing, SubscriptionPaymentConfiguration, SubscriptionReceiptAdminProfile, SubscriptionReceiptAdminBankAccount
 from .serializers import (
     PaymentInitSerializer,
     PaymentSerializer,
@@ -109,6 +109,15 @@ def _pick_receipt_admin():
         return None
     receipt_count = Payment.objects.filter(provider='receipt').count()
     return profiles[receipt_count % len(profiles)].user
+
+
+def _get_receipt_accounts(profile):
+    if not profile:
+        return []
+    accounts = list(profile.bank_accounts.filter(is_active=True).order_by('rank', 'id'))
+    if accounts:
+        return accounts
+    return []
 
 
 def _build_receipt_admin_token(user):
@@ -303,10 +312,12 @@ def initialize_payment(request):
     # -----------------------
     if payment_config.payment_mode == 'receipt':
         assigned_profile = getattr(payment.assigned_admin, 'subscription_receipt_admin_profile', None)
+        serialized_profile = SubscriptionReceiptAdminProfileSerializer(assigned_profile).data if assigned_profile else None
         return Response({
             "payment_mode": "receipt",
             "payment": PaymentSerializer(payment).data,
-            "bank_assignment": SubscriptionReceiptAdminProfileSerializer(assigned_profile).data if assigned_profile else None,
+            "bank_assignment": serialized_profile,
+            "bank_accounts": serialized_profile.get("bank_accounts", []) if serialized_profile else [],
             "tx_ref": tx_ref,
         }, status=status.HTTP_200_OK)
 
@@ -347,10 +358,27 @@ def upload_receipt(request):
         return Response({'error': 'This payment does not accept receipt upload.'}, status=400)
     if payment.payment_status == 'completed':
         return Response({'error': 'Receipt already approved.'}, status=400)
+    assigned_profile = getattr(payment.assigned_admin, 'subscription_receipt_admin_profile', None)
+    bank_account_id = serializer.validated_data.get('bank_account_id')
+    selected_account = None
+    if bank_account_id is not None:
+        selected_account = SubscriptionReceiptAdminBankAccount.objects.filter(
+            id=bank_account_id,
+            profile=assigned_profile,
+            is_active=True,
+        ).first()
+        if not selected_account:
+            return Response({'error': 'Invalid bank account selection.'}, status=400)
+    else:
+        accounts = _get_receipt_accounts(assigned_profile)
+        if len(accounts) > 1:
+            return Response({'error': 'Bank account selection is required.'}, status=400)
+        selected_account = accounts[0] if accounts else None
     payment.receipt_file = serializer.validated_data['receipt_file']
+    payment.selected_receipt_account = selected_account
     payment.receipt_uploaded_at = timezone.now()
     payment.payment_status = 'pending'
-    payment.save(update_fields=['receipt_file', 'receipt_uploaded_at', 'payment_status'])
+    payment.save(update_fields=['receipt_file', 'selected_receipt_account', 'receipt_uploaded_at', 'payment_status'])
     return Response({'message': 'Receipt uploaded successfully.', 'payment': PaymentSerializer(payment).data})
 
 

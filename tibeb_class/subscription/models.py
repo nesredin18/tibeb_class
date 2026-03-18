@@ -72,6 +72,13 @@ class Payment(models.Model):
         blank=True,
         related_name='assigned_subscription_receipts'
     )
+    selected_receipt_account = models.ForeignKey(
+        'SubscriptionReceiptAdminBankAccount',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='payments'
+    )
     reviewed_by = models.ForeignKey(
         settings.AUTH_USER_MODEL,
         on_delete=models.SET_NULL,
@@ -144,6 +151,25 @@ class SubscriptionReceiptAdminProfile(models.Model):
 
     def __str__(self):
         return f"{self.user.username} - {self.bank_name}"
+
+
+class SubscriptionReceiptAdminBankAccount(models.Model):
+    profile = models.ForeignKey(
+        SubscriptionReceiptAdminProfile,
+        on_delete=models.CASCADE,
+        related_name='bank_accounts',
+    )
+    bank_name = models.CharField(max_length=120)
+    account_number = models.CharField(max_length=120)
+    account_holder_name = models.CharField(max_length=255, blank=True, null=True)
+    is_active = models.BooleanField(default=True)
+    rank = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['rank', 'id']
+
+    def __str__(self):
+        return f"{self.bank_name} - {self.account_number}"
     
 
 

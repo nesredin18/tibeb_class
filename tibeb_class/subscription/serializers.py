@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from contents.models import  Grade
-from .models import Payment, SubscriptionPlan, SubscriptionPlanPricing, SubscriptionPaymentConfiguration, SubscriptionReceiptAdminProfile
+from .models import Payment, SubscriptionPlan, SubscriptionPlanPricing, SubscriptionPaymentConfiguration, SubscriptionReceiptAdminProfile, SubscriptionReceiptAdminBankAccount
 
 User = get_user_model()
 
@@ -48,6 +48,7 @@ class PaymentSerializer(serializers.ModelSerializer):
     receipt_file_url = serializers.SerializerMethodField()
     user_identifier = serializers.SerializerMethodField()
     assigned_admin_name = serializers.SerializerMethodField()
+    selected_receipt_account = serializers.SerializerMethodField()
 
     class Meta:
         model = Payment
@@ -63,6 +64,7 @@ class PaymentSerializer(serializers.ModelSerializer):
             "user_identifier",
             "assigned_admin",
             "assigned_admin_name",
+            "selected_receipt_account",
             "reviewed_by",
             "review_note",
             "receipt_uploaded_at",
@@ -91,6 +93,13 @@ class PaymentSerializer(serializers.ModelSerializer):
             return None
         return getattr(obj.assigned_admin, "username", None)
 
+    def get_selected_receipt_account(self, obj):
+        if obj.selected_receipt_account:
+            return SubscriptionReceiptAdminBankAccountSerializer(obj.selected_receipt_account).data
+        profile = getattr(obj.assigned_admin, "subscription_receipt_admin_profile", None)
+        accounts = _serialize_receipt_accounts(profile)
+        return accounts[0] if accounts else None
+
 
 class SubscriptionPaymentConfigurationSerializer(serializers.ModelSerializer):
     class Meta:
@@ -100,13 +109,43 @@ class SubscriptionPaymentConfigurationSerializer(serializers.ModelSerializer):
 
 class UploadSubscriptionReceiptSerializer(serializers.Serializer):
     payment_id = serializers.IntegerField()
+    bank_account_id = serializers.IntegerField(required=False)
     receipt_file = serializers.FileField()
 
 
+class SubscriptionReceiptAdminBankAccountSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionReceiptAdminBankAccount
+        fields = ["id", "bank_name", "account_number", "account_holder_name", "is_active", "rank"]
+
+
+def _serialize_receipt_accounts(profile):
+    if not profile:
+        return []
+    accounts = list(profile.bank_accounts.filter(is_active=True).order_by("rank", "id"))
+    if accounts:
+        return SubscriptionReceiptAdminBankAccountSerializer(accounts, many=True).data
+    if profile.bank_name and profile.account_number:
+        return [{
+            "id": None,
+            "bank_name": profile.bank_name,
+            "account_number": profile.account_number,
+            "account_holder_name": profile.user.get_full_name() if hasattr(profile.user, "get_full_name") else "",
+            "is_active": profile.is_active,
+            "rank": 0,
+        }]
+    return []
+
+
 class SubscriptionReceiptAdminProfileSerializer(serializers.ModelSerializer):
+    bank_accounts = serializers.SerializerMethodField()
+
     class Meta:
         model = SubscriptionReceiptAdminProfile
-        fields = ["id", "bank_name", "account_number", "rotation_order", "is_active"]
+        fields = ["id", "bank_name", "account_number", "rotation_order", "is_active", "bank_accounts"]
+
+    def get_bank_accounts(self, obj):
+        return _serialize_receipt_accounts(obj)
 
 
 class SubscriptionReceiptAdminLoginSerializer(serializers.Serializer):

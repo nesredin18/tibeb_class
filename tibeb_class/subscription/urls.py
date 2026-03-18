@@ -21,6 +21,9 @@ urlpatterns = [
     path('admin-ui/login/', receipt_admin_login, name='receipt_admin_login'),
     path('admin-ui/receipts/', assigned_receipts, name='assigned_receipts'),
     path('admin-ui/receipts/<int:payment_id>/review/', review_receipt, name='review_receipt'),
+    path('rpadmin/login/', receipt_admin_login, name='receipt_admin_login_rpadmin'),
+    path('rpadmin/receipts/', assigned_receipts, name='assigned_receipts_rpadmin'),
+    path('rpadmin/receipts/<int:payment_id>/review/', review_receipt, name='review_receipt_rpadmin'),
     path('chapa-webhook/', chapa_webhook, name='chapa_webhook'),
     path('active-subscriptions/', get_active_subscriptions, name='get_active_subscriptions'),
 
