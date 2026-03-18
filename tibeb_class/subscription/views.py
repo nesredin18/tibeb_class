@@ -345,9 +345,12 @@ def upload_receipt(request):
         return Response({'error': 'Payment not found.'}, status=404)
     if payment.provider != 'receipt':
         return Response({'error': 'This payment does not accept receipt upload.'}, status=400)
+    if payment.payment_status == 'completed':
+        return Response({'error': 'Receipt already approved.'}, status=400)
     payment.receipt_file = serializer.validated_data['receipt_file']
     payment.receipt_uploaded_at = timezone.now()
-    payment.save(update_fields=['receipt_file', 'receipt_uploaded_at'])
+    payment.payment_status = 'pending'
+    payment.save(update_fields=['receipt_file', 'receipt_uploaded_at', 'payment_status'])
     return Response({'message': 'Receipt uploaded successfully.', 'payment': PaymentSerializer(payment).data})
 
 
@@ -398,6 +401,11 @@ def review_receipt(request, payment_id):
 
     action = serializer.validated_data['action']
     note = serializer.validated_data.get('note', '')
+
+    if action == 'approve' and payment.payment_status == 'completed':
+        return Response({'error': 'This receipt is already approved.'}, status=400)
+    if action == 'decline' and payment.payment_status == 'failed':
+        return Response({'error': 'This receipt is already declined.'}, status=400)
 
     payment.reviewed_by = request.user
     payment.review_note = note
