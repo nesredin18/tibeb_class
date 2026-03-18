@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from contents.models import  Grade
-from .models import Payment, SubscriptionPlan, SubscriptionPlanPricing
+from .models import Payment, SubscriptionPlan, SubscriptionPlanPricing, SubscriptionPaymentConfiguration, SubscriptionReceiptAdminProfile
 
 class GradeSerializer(serializers.ModelSerializer):
     class Meta:
@@ -58,6 +58,24 @@ class PaymentSerializer(serializers.ModelSerializer):
             "end_date",
             "period_type",
             "chapa_tx_ref",
+            "provider",
             "created_at",
             "updated_at",
         ]
+
+
+class SubscriptionPaymentConfigurationSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionPaymentConfiguration
+        fields = ["payment_mode"]
+
+
+class UploadSubscriptionReceiptSerializer(serializers.Serializer):
+    payment_id = serializers.IntegerField()
+    receipt_file = serializers.FileField()
+
+
+class SubscriptionReceiptAdminProfileSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = SubscriptionReceiptAdminProfile
+        fields = ["id", "bank_name", "account_number", "rotation_order", "is_active"]

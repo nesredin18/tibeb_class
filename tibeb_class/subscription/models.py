@@ -2,6 +2,7 @@ from django.db import models
 from django.utils import timezone
 from datetime import timedelta
 from django.conf import settings
+import uuid
 
 # Create your models here.
 class SubscriptionPlan(models.Model):
@@ -62,6 +63,25 @@ class Payment(models.Model):
 
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     gift_from = models.ForeignKey( settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True, blank=True, related_name='gift_payments')
+    provider = models.CharField(max_length=30, default='chapa')
+    receipt_file = models.FileField(upload_to='subscription_payment_receipts/', blank=True, null=True)
+    assigned_admin = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='assigned_subscription_receipts'
+    )
+    reviewed_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='reviewed_subscription_receipts'
+    )
+    review_note = models.TextField(blank=True)
+    receipt_uploaded_at = models.DateTimeField(blank=True, null=True)
+    reviewed_at = models.DateTimeField(blank=True, null=True)
 
     subscription_plan = models.ForeignKey(
         SubscriptionPlan,
@@ -85,6 +105,45 @@ class Payment(models.Model):
 
     def __str__(self):
         return f"{self.user} - {self.amount} ETB - {self.status}"
+
+
+class SubscriptionPaymentConfiguration(models.Model):
+    PAYMENT_MODE_CHOICES = (
+        ('chapa', 'Chapa'),
+        ('receipt', 'Receipt'),
+    )
+    payment_mode = models.CharField(max_length=20, choices=PAYMENT_MODE_CHOICES, default='chapa')
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = "Subscription payment configuration"
+        verbose_name_plural = "Subscription payment configuration"
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Subscription payment configuration"
+
+
+class SubscriptionReceiptAdminProfile(models.Model):
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='subscription_receipt_admin_profile')
+    bank_name = models.CharField(max_length=120)
+    account_number = models.CharField(max_length=120)
+    is_active = models.BooleanField(default=True)
+    rotation_order = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        ordering = ['rotation_order', 'id']
+
+    def __str__(self):
+        return f"{self.user.username} - {self.bank_name}"
     
 
 

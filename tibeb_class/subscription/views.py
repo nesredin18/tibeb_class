@@ -6,8 +6,15 @@ from rest_framework.response import Response
 from contents.models import Grade
 from tibeb_class.permissions import IsVerified
 from user.models import CustomUser, ParentChild
-from .models import Payment, SubscriptionPlan,SubscriptionPlanPricing
-from .serializers import PaymentInitSerializer, PaymentSerializer, SubscriptionPlanSerializer
+from .models import Payment, SubscriptionPlan,SubscriptionPlanPricing, SubscriptionPaymentConfiguration, SubscriptionReceiptAdminProfile
+from .serializers import (
+    PaymentInitSerializer,
+    PaymentSerializer,
+    SubscriptionPlanSerializer,
+    SubscriptionPaymentConfigurationSerializer,
+    SubscriptionReceiptAdminProfileSerializer,
+    UploadSubscriptionReceiptSerializer,
+)
 from rest_framework import status
 from decimal import Decimal
 import uuid,requests
@@ -88,6 +95,24 @@ CHAPA_CALLBACK_URL = settings.CHAPA_CALLBACK_URL
 DEFAULT_RETURN_URL = settings.DEFAULT_RETURN_URL
 
 
+def _get_payment_config():
+    return SubscriptionPaymentConfiguration.load()
+
+
+def _pick_receipt_admin():
+    profiles = list(SubscriptionReceiptAdminProfile.objects.filter(is_active=True, user__is_active=True).order_by('rotation_order', 'id'))
+    if not profiles:
+        return None
+    receipt_count = Payment.objects.filter(provider='receipt').count()
+    return profiles[receipt_count % len(profiles)].user
+
+
+@api_view(['GET'])
+def get_payment_settings(request):
+    serializer = SubscriptionPaymentConfigurationSerializer(_get_payment_config())
+    return Response(serializer.data)
+
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsVerified])
@@ -101,6 +126,7 @@ def initialize_payment(request):
     return_url = request.data.get("return_url")
 
     tx_ref = str(uuid.uuid4())
+    payment_config = _get_payment_config()
 
     subscription = None
     amount = None
@@ -232,6 +258,7 @@ def initialize_payment(request):
     payment = Payment.objects.create(
         user=user,
         gift_from=request.user if for_whom=="other" else None,
+        provider='receipt' if payment_config.payment_mode == 'receipt' else 'chapa',
         subscription_plan=subscription,
         amount=amount,
         chapa_tx_ref=tx_ref,
@@ -239,7 +266,8 @@ def initialize_payment(request):
         end_date=end_date,
         period_type=period_type,
         status=status_value,
-        payment_status=payment_status_value
+        payment_status=payment_status_value,
+        assigned_admin=_pick_receipt_admin() if payment_config.payment_mode == 'receipt' else None,
     )
 
     if not subscription and grades:
@@ -250,6 +278,15 @@ def initialize_payment(request):
     # -----------------------
     # Call Chapa API
     # -----------------------
+    if payment_config.payment_mode == 'receipt':
+        assigned_profile = getattr(payment.assigned_admin, 'subscription_receipt_admin_profile', None)
+        return Response({
+            "payment_mode": "receipt",
+            "payment": PaymentSerializer(payment).data,
+            "bank_assignment": SubscriptionReceiptAdminProfileSerializer(assigned_profile).data if assigned_profile else None,
+            "tx_ref": tx_ref,
+        }, status=status.HTTP_200_OK)
+
     payload = {
         "amount": str(amount),
         "currency": "ETB",
@@ -273,6 +310,22 @@ def initialize_payment(request):
         }, status=status.HTTP_200_OK)
 
     return Response({"error": "Failed to initialize payment"}, status=status.HTTP_400_BAD_REQUEST)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsVerified])
+def upload_receipt(request):
+    serializer = UploadSubscriptionReceiptSerializer(data=request.data)
+    serializer.is_valid(raise_exception=True)
+    payment = Payment.objects.filter(id=serializer.validated_data['payment_id'], user=request.user).first()
+    if not payment:
+        return Response({'error': 'Payment not found.'}, status=404)
+    if payment.provider != 'receipt':
+        return Response({'error': 'This payment does not accept receipt upload.'}, status=400)
+    payment.receipt_file = serializer.validated_data['receipt_file']
+    payment.receipt_uploaded_at = timezone.now()
+    payment.save(update_fields=['receipt_file', 'receipt_uploaded_at'])
+    return Response({'message': 'Receipt uploaded successfully.', 'payment': PaymentSerializer(payment).data})
 
 
 CHAPA_WEBHOOK_SECRET = settings.CHAPA_WEBHOOK_SECRET  # store in .env
