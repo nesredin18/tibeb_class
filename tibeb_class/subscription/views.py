@@ -22,12 +22,17 @@ from .serializers import (
 from rest_framework import status
 from decimal import Decimal
 import uuid,requests
+from django.db.models import Sum
 from rest_framework.decorators import api_view, permission_classes
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from .models import Payment
 import hmac
 import hashlib
 from django.conf import settings
+from django.core.mail import EmailMultiAlternatives
+from django.utils.html import strip_tags
+from tibeb_class.email_templates import EmailTemplateHelper
+from user.utils import send_sms_otp
 
 
 
@@ -118,6 +123,75 @@ def _get_receipt_accounts(profile):
     if accounts:
         return accounts
     return []
+
+
+def _is_super_receipt_admin(user):
+    return bool(getattr(user, "is_superuser", False) or getattr(user, "is_staff", False))
+
+
+def _build_receipt_admin_summary(queryset, admin_user=None):
+    if admin_user is not None:
+        queryset = queryset.filter(assigned_admin=admin_user)
+    approved = queryset.filter(payment_status='completed')
+    declined = queryset.filter(payment_status='failed')
+    pending = queryset.filter(payment_status='pending')
+    return {
+        'approved_count': approved.count(),
+        'approved_amount': str(approved.aggregate(total=Sum('amount')).get('total') or Decimal('0')),
+        'declined_count': declined.count(),
+        'declined_amount': str(declined.aggregate(total=Sum('amount')).get('total') or Decimal('0')),
+        'pending_count': pending.count(),
+        'pending_amount': str(pending.aggregate(total=Sum('amount')).get('total') or Decimal('0')),
+    }
+
+
+def _get_user_notification_contact(user):
+    username_type = (getattr(user, 'username_type', '') or '').strip().lower()
+    username = (getattr(user, 'username', '') or '').strip()
+    email = (getattr(user, 'email', '') or '').strip()
+    phone = (getattr(user, 'phone_number', '') or '').strip()
+    if username_type == 'email':
+        return email or username, 'email'
+    if username_type == 'phone':
+        return phone or username, 'phone'
+    if email:
+        return email, 'email'
+    if phone:
+        return phone, 'phone'
+    return '', ''
+
+
+def _send_receipt_rejected_notification(user):
+    target, contact_type = _get_user_notification_contact(user)
+    if not target:
+        return
+    if contact_type == 'email':
+        html = f"""
+        <div style="font-family:'Roboto',Arial,sans-serif;background-color:#f9fafb;padding:0;margin:0;">
+          <div style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+            {EmailTemplateHelper._header()}
+            <div style="padding:32px 24px;max-width:600px;margin:0 auto;">
+              <h1 style="font-size:24px;text-align:center;font-weight:bold;color:#111827;margin:0 0 16px;">
+                Receipt Payment Rejected
+              </h1>
+              <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
+                Your Tibeb Class receipt payment was rejected. Please upload a valid receipt or contact support.
+              </p>
+            </div>
+            {EmailTemplateHelper._footer()}
+          </div>
+        </div>
+        """
+        msg = EmailMultiAlternatives(
+            subject="Tibeb Class Receipt Payment Rejected",
+            body=strip_tags(html),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[target],
+        )
+        msg.attach_alternative(html, "text/html")
+        msg.send(fail_silently=True)
+    else:
+        send_sms_otp(target, "Your Tibeb Class receipt payment was rejected. Please upload a valid receipt or contact support.")
 
 
 def _build_receipt_admin_token(user):
@@ -400,6 +474,7 @@ def receipt_admin_login(request):
         'user': {
             'id': user.id,
             'username': user.username,
+            'role': 'super' if _is_super_receipt_admin(user) else 'manager',
         },
     })
 
@@ -409,11 +484,26 @@ def receipt_admin_login(request):
 def assigned_receipts(request):
     if not _is_receipt_manager(request.user):
         return Response({'error': 'Not authorized.'}, status=403)
-    receipts = Payment.objects.filter(
+    queryset = Payment.objects.filter(
         provider='receipt',
-        assigned_admin=request.user,
-    ).order_by('-receipt_uploaded_at', '-created_at')
-    return Response(PaymentSerializer(receipts, many=True).data)
+    ).select_related('assigned_admin', 'reviewed_by', 'selected_receipt_account', 'user').order_by('-receipt_uploaded_at', '-created_at')
+    visible_receipts = queryset if _is_super_receipt_admin(request.user) else queryset.filter(assigned_admin=request.user)
+    admin_profiles = SubscriptionReceiptAdminProfile.objects.select_related('user').filter(is_active=True, user__is_active=True).order_by('rotation_order', 'id')
+    admin_summaries = []
+    for profile in admin_profiles:
+        admin_summaries.append({
+            'admin_id': profile.user_id,
+            'admin_name': profile.user.get_full_name().strip() or profile.user.username,
+            'bank_name': profile.bank_name,
+            'account_number': profile.account_number,
+            **_build_receipt_admin_summary(queryset, admin_user=profile.user),
+        })
+    return Response({
+        'scope': 'all' if _is_super_receipt_admin(request.user) else 'self',
+        'payments': PaymentSerializer(visible_receipts, many=True).data,
+        'my_summary': _build_receipt_admin_summary(queryset, admin_user=request.user),
+        'admin_summaries': admin_summaries if _is_super_receipt_admin(request.user) else [],
+    })
 
 
 @api_view(['POST'])
@@ -423,7 +513,10 @@ def review_receipt(request, payment_id):
         return Response({'error': 'Not authorized.'}, status=403)
     serializer = SubscriptionReceiptReviewSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
-    payment = Payment.objects.filter(id=payment_id, provider='receipt', assigned_admin=request.user).first()
+    payment_queryset = Payment.objects.filter(id=payment_id, provider='receipt')
+    if not _is_super_receipt_admin(request.user):
+        payment_queryset = payment_queryset.filter(assigned_admin=request.user)
+    payment = payment_queryset.first()
     if not payment:
         return Response({'error': 'Receipt payment not found.'}, status=404)
 
@@ -444,6 +537,7 @@ def review_receipt(request, payment_id):
         payment.status = 'active' if payment.start_date <= timezone.now() else 'pending'
     else:
         payment.payment_status = 'failed'
+        _send_receipt_rejected_notification(payment.user)
 
     payment.save(update_fields=['payment_status', 'status', 'reviewed_by', 'review_note', 'reviewed_at'])
     return Response({
