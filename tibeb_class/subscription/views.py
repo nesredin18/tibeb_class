@@ -162,6 +162,39 @@ def _get_user_notification_contact(user):
     return '', ''
 
 
+def _send_receipt_approved_notification(user):
+    target, contact_type = _get_user_notification_contact(user)
+    if not target:
+        return
+    html = f"""
+    <div style="font-family:'Roboto',Arial,sans-serif;background-color:#f9fafb;padding:0;margin:0;">
+      <div style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+        {EmailTemplateHelper._header()}
+        <div style="padding:32px 24px;max-width:600px;margin:0 auto;">
+          <h1 style="font-size:24px;text-align:center;font-weight:bold;color:#111827;margin:0 0 16px;">
+            Receipt Payment Approved
+          </h1>
+          <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
+            Your Tibeb Class receipt payment was approved successfully.
+          </p>
+        </div>
+        {EmailTemplateHelper._footer()}
+      </div>
+    </div>
+    """
+    if contact_type == 'email':
+        msg = EmailMultiAlternatives(
+            subject="Tibeb Class Receipt Payment Approved",
+            body=strip_tags(html),
+            from_email=settings.DEFAULT_FROM_EMAIL,
+            to=[target],
+        )
+        msg.attach_alternative(html, "text/html")
+        msg.send(fail_silently=True)
+    else:
+        send_sms_otp(target, "Your Tibeb Class receipt payment was approved successfully.")
+
+
 def _send_receipt_rejected_notification(user):
     target, contact_type = _get_user_notification_contact(user)
     if not target:
@@ -786,6 +819,7 @@ def review_receipt(request, payment_id):
     if action == 'approve':
         payment.payment_status = 'completed'
         payment.status = 'active' if payment.start_date <= timezone.now() else 'pending'
+        _send_receipt_approved_notification(payment.user)
     else:
         payment.payment_status = 'failed'
         _send_receipt_rejected_notification(payment.user)
