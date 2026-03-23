@@ -38,6 +38,8 @@ import re
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
 from notifications.models import Notification
+from notifications.utils import send_firebase_notification, send_realtime_notification
+import requests
 
 
 
@@ -49,14 +51,34 @@ User = get_user_model()
 
 def _create_parent_request_notification(child_user, relation):
     parent_name = f"{relation.parent.first_name} {relation.parent.last_name}".strip() or relation.parent.username
-    Notification.objects.create(
+    message = f'{parent_name} sent you a parent request.'
+    notification = Notification.objects.create(
         user=child_user,
         type='system',
         content_type='parent_request',
         content_id=relation.id,
-        message=f'{parent_name} sent you a parent request.',
+        message=message,
         level='account',
     )
+    try:
+        send_realtime_notification(child_user.id, message)
+    except Exception:
+        pass
+    try:
+        send_firebase_notification(
+            user=child_user,
+            title='Tibeb Class',
+            body=message,
+            data={
+                'content_type': notification.content_type,
+                'content_id': notification.content_id,
+                'level': notification.level,
+                'type': notification.type,
+                'target_route': '/account?tab=parents',
+            },
+        )
+    except Exception:
+        pass
 
 
 def build_token_pair(user, remember_me=False):
@@ -92,6 +114,26 @@ def _get_user_email_target(user):
     if getattr(user, 'username_type', '') == 'email' and getattr(user, 'username', ''):
         return user.username.strip()
     return ''
+
+
+def _deactivate_exam_platform_access(user):
+    exams_backend_url = (getattr(settings, 'EXAMS_BACKEND_URL', '') or '').rstrip('/')
+    if not exams_backend_url:
+        return
+
+    internal_api_key = (getattr(settings, 'EXAMS_INTERNAL_API_KEY', '') or '').strip()
+    endpoint = f"{exams_backend_url}/api/exams/internal/users/deactivate/"
+    headers = {
+        'X-Internal-API-Key': internal_api_key,
+    }
+
+    response = requests.post(
+        endpoint,
+        json={'external_user_id': user.id},
+        headers=headers,
+        timeout=15,
+    )
+    response.raise_for_status()
 
 # Create your views here.
 @api_view(['POST'])
@@ -531,6 +573,13 @@ def confirm_delete_account(request):
 
     otp_obj.is_used = True
     otp_obj.save(update_fields=['is_used'])
+    try:
+        _deactivate_exam_platform_access(user)
+    except requests.RequestException:
+        return Response(
+            {'error': 'Unable to deactivate your exam access right now. Please try again shortly.'},
+            status=status.HTTP_502_BAD_GATEWAY,
+        )
     user.delete()
     return Response({'message': 'Account deleted successfully.'}, status=status.HTTP_200_OK)
 
