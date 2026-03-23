@@ -15,7 +15,7 @@ from user.utils import send_sms_otp
 from .serializers import UserIdentitySerializer, UserSerializer, UserUpdateSerializer
 from rest_framework.authtoken.models import Token
 from django.contrib.auth import get_user_model
-from .models import BookProgress, ChangeUserNameOTP, CustomUser, ExerciseAnswer, ExerciseProgress, ParentChild, PasswordResetOTP, PhoneOTP, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
+from .models import BookProgress, ChangeUserNameOTP, CustomUser, DeleteAccountOTP, ExerciseAnswer, ExerciseProgress, ParentChild, PasswordResetOTP, PhoneOTP, QuestionProgress, User_Grade,UserSubscription, VideoProgress,BookProgress
 from contents.models import Book, Exercise, Option, Question, Subject, Subsection
 from subscription.models import SubscriptionPlan
 from contents.models import Grade,Video, Chapter
@@ -83,6 +83,15 @@ def build_token_pair(user, remember_me=False):
 
 def get_user_identity_payload(user):
     return UserIdentitySerializer(user).data
+
+
+def _get_user_email_target(user):
+    email = getattr(user, 'email', '') or ''
+    if email:
+        return email.strip()
+    if getattr(user, 'username_type', '') == 'email' and getattr(user, 'username', ''):
+        return user.username.strip()
+    return ''
 
 # Create your views here.
 @api_view(['POST'])
@@ -464,6 +473,66 @@ def confirm_username_change(request):
     user.last_email_change = timezone.now()   # record timestamp
     user.save()
     return Response({"message": "Username updated.","username":user.username}, status=200)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsVerified])
+def request_delete_account_code(request):
+    user = request.user
+    target_email = _get_user_email_target(user)
+    if not target_email:
+        return Response({'error': 'No email is available for this account.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    otp_obj = DeleteAccountOTP.objects.create(user=user)
+    html = f"""
+    <div style="font-family:'Roboto',Arial,sans-serif;background-color:#f9fafb;padding:0;margin:0;">
+      <div style="max-width:600px;margin:0 auto;background-color:#ffffff;">
+        {EmailTemplateHelper._header()}
+        <div style="padding:32px 24px;max-width:600px;margin:0 auto;">
+          <h1 style="font-size:24px;text-align:center;font-weight:bold;color:#111827;margin:0 0 16px;">
+            Delete Account Verification
+          </h1>
+          <p style="color:#4b5563;font-size:14px;margin:0 0 16px;">
+            Use this verification code to permanently delete your Tibeb Class account:
+          </p>
+          <p style="font-size:32px;letter-spacing:6px;font-weight:bold;text-align:center;color:#111827;margin:24px 0;">
+            {otp_obj.otp}
+          </p>
+          <p style="color:#6b7280;font-size:13px;margin:0;">
+            This code expires in 20 minutes.
+          </p>
+        </div>
+        {EmailTemplateHelper._footer()}
+      </div>
+    </div>
+    """
+    msg = EmailMultiAlternatives(
+        subject="Delete Your Tibeb Class Account",
+        body=strip_tags(html),
+        from_email=settings.DEFAULT_FROM_EMAIL,
+        to=[target_email],
+    )
+    msg.attach_alternative(html, "text/html")
+    msg.send(fail_silently=True)
+    return Response({'message': 'Verification code sent to your email.'}, status=status.HTTP_200_OK)
+
+
+@api_view(['POST'])
+@permission_classes([IsAuthenticated, IsVerified])
+def confirm_delete_account(request):
+    user = request.user
+    otp = (request.data.get('otp') or '').strip()
+    if not otp:
+        return Response({'error': 'Verification code is required.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    otp_obj = DeleteAccountOTP.objects.filter(user=user, otp=otp, is_used=False).last()
+    if not otp_obj or otp_obj.is_expired():
+        return Response({'error': 'Invalid or expired verification code.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    otp_obj.is_used = True
+    otp_obj.save(update_fields=['is_used'])
+    user.delete()
+    return Response({'message': 'Account deleted successfully.'}, status=status.HTTP_200_OK)
 
 @api_view(['PUT', 'PATCH'])
 @permission_classes([IsAuthenticated, IsVerified])

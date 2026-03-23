@@ -7,7 +7,7 @@ from .views import update_user,get_user_info, add_child_account, respond_to_pare
 from .views import get_parent_childs,get_child_requests,cancel_child_request,unlink_child
 from .views import get_user_progress,track_book_progress,track_video_progress,aggregated_progress_subjects_under_user_grades,aggregated_progress_chapter_level_for_user,resend_verification_code
 from .views import reset_question_progress_for_exercise,verify_password_reset_code,request_username_change,confirm_username_change
-from .views import resend_request_username_change
+from .views import resend_request_username_change, request_delete_account_code, confirm_delete_account
 from rest_framework_simplejwt.views import (
     TokenObtainPairView,
     TokenRefreshView,
@@ -25,6 +25,8 @@ urlpatterns = [
     path('update-email/', request_username_change, name='update_email_and_send_verification'),
     path('confirm-update-email/', confirm_username_change, name='confirm_update_email'),
     path('resend-update-email/', resend_request_username_change, name='resend_request_username_change'),
+    path('request-delete-account-code/', request_delete_account_code, name='request_delete_account_code'),
+    path('confirm-delete-account/', confirm_delete_account, name='confirm_delete_account'),
     path('reset-exercise/', reset_question_progress_for_exercise, name='reset_question_progress_for_exercise'),
     path('update/', update_user, name='update-user'),
     path('login/', login, name='login'),

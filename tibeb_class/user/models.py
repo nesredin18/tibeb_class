@@ -64,6 +64,21 @@ class ChangeUserNameOTP(models.Model):
         if not self.otp:
             self.otp = str(random.randint(100000, 999999))
         super().save(*args, **kwargs)
+
+
+class DeleteAccountOTP(models.Model):
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
+    otp = models.CharField(max_length=6)
+    created_at = models.DateTimeField(auto_now_add=True)
+    is_used = models.BooleanField(default=False)
+
+    def is_expired(self):
+        return timezone.now() > self.created_at + timedelta(minutes=20)
+
+    def save(self, *args, **kwargs):
+        if not self.otp:
+            self.otp = str(random.randint(100000, 999999))
+        super().save(*args, **kwargs)
 class ParentChild(models.Model):
     parent = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='children')
     child = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='parents')
