@@ -236,7 +236,7 @@ DEFAULT_FROM_EMAIL = formataddr((
 FRONTEND_URL = env("FRONTEND_URL", default="https://tibebclass.com")
 BACKEND_URL = env("BACKEND_URL", default="https://admin.tibebclass.com")
 EXAMS_FRONTEND_URL = env("EXAMS_FRONTEND_URL", default="https://exam.tibebclass.com")
-EXAMS_BACKEND_URL = env("EXAMS_BACKEND_URL", default="https://api.exam.tibebclass.com")
+EXAMS_BACKEND_URL = env("EXAMS_BACKEND_URL", default="https://admin.exam.tibebclass.com")
 EXAMS_INTERNAL_API_KEY = env(
     "EXAMS_INTERNAL_API_KEY",
     default="tibeb-exams-internal-change-me",
