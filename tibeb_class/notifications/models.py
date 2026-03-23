@@ -9,10 +9,12 @@ class Notification(models.Model):
         ('book', 'Book'),
         ('video', 'Video'),
         ('exercise', 'Exercise'),
+        ('parent_request', 'Parent Request'),
     )    
     Resource_Type = (
         ('class', 'Class'),
         ('additional', 'Additional'),
+        ('system', 'System'),
     )
     type = models.CharField(max_length=20, choices=Resource_Type, default='class')
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='notifications')

@@ -37,6 +37,7 @@ from django.core.mail import EmailMultiAlternatives
 import re
 from django.core.validators import validate_email
 from django.core.exceptions import ValidationError
+from notifications.models import Notification
 
 
 
@@ -44,6 +45,18 @@ from django.core.exceptions import ValidationError
 
 
 User = get_user_model()
+
+
+def _create_parent_request_notification(child_user, relation):
+    parent_name = f"{relation.parent.first_name} {relation.parent.last_name}".strip() or relation.parent.username
+    Notification.objects.create(
+        user=child_user,
+        type='system',
+        content_type='parent_request',
+        content_id=relation.id,
+        message=f'{parent_name} sent you a parent request.',
+        level='account',
+    )
 
 
 def build_token_pair(user, remember_me=False):
@@ -599,11 +612,13 @@ def add_child_account(request):
                 else:
                     relation.status = 'pending'
                     relation.save()
+                    _create_parent_request_notification(child_user, relation)
                     return Response({'message': 'Child link request sent (pending approval).'}, status=200)
 
             # If new relation, set to pending
             relation.status = 'pending'
             relation.save()
+            _create_parent_request_notification(child_user, relation)
             return Response({'message': 'Child link request sent (pending approval).'}, status=200)
 
         except User.DoesNotExist:
