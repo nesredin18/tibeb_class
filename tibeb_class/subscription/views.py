@@ -1,4 +1,5 @@
 from datetime import timedelta
+import json
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -219,10 +220,225 @@ def get_payment_settings(request):
     return Response(serializer.data)
 
 
+def _resolve_subscription_target_user(request, for_whom, other_email):
+    if for_whom == "self":
+        return request.user
+    if for_whom == "other":
+        if not other_email:
+            raise ValueError('other_email is required when for_whom is "other"')
+        try:
+            return CustomUser.objects.get(username=other_email)
+        except CustomUser.DoesNotExist as exc:
+            raise LookupError('User not found.') from exc
+    raise ValueError('Invalid for_whom value.')
+
+
+def _prepare_subscription_payment(request, data):
+    subscription_id = data.get("subscription_id")
+    for_whom = data.get("for_whom")
+    other_email = data.get("other_email")
+    duration = data.get("duration")
+    period_type = data.get("period_type")
+    grades = data.get("grades", [])
+    if isinstance(grades, str):
+        try:
+            grades = json.loads(grades)
+        except json.JSONDecodeError:
+            grades = [value for value in grades.split(",") if value]
+
+    subscription = None
+    amount = None
+    user = _resolve_subscription_target_user(request, for_whom, other_email)
+
+    if subscription_id:
+        try:
+            subscription = SubscriptionPlan.objects.get(id=subscription_id, is_active=True)
+        except SubscriptionPlan.DoesNotExist:
+            raise ValueError("Invalid subscription plan")
+        amount = subscription.price
+        duration = subscription.duration
+        period_type = subscription.period_type
+    else:
+        if not duration or not period_type or not grades:
+            raise ValueError("duration, period_type, and grades are required for custom plan")
+        try:
+            duration = int(duration)
+        except ValueError as exc:
+            raise ValueError("Duration must be an integer") from exc
+
+        if duration > 12:
+            period_type = "yearly"
+
+        grade_objs = Grade.objects.filter(id__in=grades)
+        if not grade_objs.exists() or grade_objs.count() != len(grades):
+            raise ValueError("Invalid grades provided")
+
+        total_price = Decimal("0.00")
+        for grade in grade_objs:
+            try:
+                pricing = SubscriptionPlanPricing.objects.get(grade=grade, period_type=period_type)
+            except SubscriptionPlanPricing.DoesNotExist as exc:
+                raise LookupError(f"No pricing for grade {grade.name} and {period_type}") from exc
+            total_price_grade = pricing.price * Decimal(duration)
+            discount_amount = total_price_grade * (pricing.discount / Decimal("100"))
+            total_price += total_price_grade - discount_amount
+
+        amount = round(float(total_price), 2)
+
+    last_active = Payment.objects.filter(
+        user=user,
+        status="active",
+        payment_status="completed",
+        end_date__gt=timezone.now()
+    ).order_by("-end_date").first()
+
+    last_pending = Payment.objects.filter(
+        user=user,
+        status="pending",
+        payment_status="pending"
+    ).order_by("-created_at").first()
+
+    if last_active:
+        start_date = last_active.end_date + timedelta(seconds=1)
+        status_value = "pending"
+        payment_status_value = "pending"
+    elif last_pending:
+        last_paid = Payment.objects.filter(
+            user=user,
+            status="active",
+            payment_status="completed",
+            end_date__gt=timezone.now()
+        ).order_by("-end_date").first()
+
+        if last_paid:
+            start_date = last_paid.end_date + timedelta(seconds=1)
+            status_value = "pending"
+        else:
+            start_date = timezone.now()
+            status_value = "active"
+        payment_status_value = "pending"
+    else:
+        start_date = timezone.now()
+        status_value = "active"
+        payment_status_value = "pending"
+
+    if period_type == "monthly":
+        end_date = start_date + timedelta(days=30 * int(duration))
+    elif period_type == "yearly":
+        end_date = start_date + timedelta(days=365 * int(duration))
+    else:
+        raise ValueError("Invalid period type")
+
+    return {
+        "user": user,
+        "subscription": subscription,
+        "amount": amount,
+        "duration": duration,
+        "period_type": period_type,
+        "grades": grades,
+        "start_date": start_date,
+        "end_date": end_date,
+        "status_value": status_value,
+        "payment_status_value": payment_status_value,
+        "gift_from": request.user if for_whom == "other" else None,
+    }
+
+
+def _create_subscription_receipt_payment(prepared, selected_account=None):
+    tx_ref = str(uuid.uuid4())
+    assigned_admin = selected_account.profile.user if selected_account else _pick_receipt_admin()
+    payment = Payment.objects.create(
+        user=prepared["user"],
+        gift_from=prepared["gift_from"],
+        provider='receipt',
+        subscription_plan=prepared["subscription"],
+        amount=prepared["amount"],
+        chapa_tx_ref=tx_ref,
+        start_date=prepared["start_date"],
+        end_date=prepared["end_date"],
+        period_type=prepared["period_type"],
+        status=prepared["status_value"],
+        payment_status=prepared["payment_status_value"],
+        assigned_admin=assigned_admin,
+        selected_receipt_account=selected_account,
+    )
+    if not prepared["subscription"] and prepared["grades"]:
+        payment.grade.set(prepared["grades"])
+    elif prepared["subscription"] and prepared["subscription"].grades.exists():
+        payment.grade.set(prepared["subscription"].grades.all())
+    return payment
+
+
 
 @api_view(['POST'])
 @permission_classes([IsAuthenticated, IsVerified])
 def initialize_payment(request):
+    return_url = request.data.get("return_url") or DEFAULT_RETURN_URL
+    payment_config = _get_payment_config()
+
+    try:
+        prepared = _prepare_subscription_payment(request, request.data)
+    except ValueError as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+    except LookupError as exc:
+        return Response({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+
+    if payment_config.payment_mode == 'receipt':
+        assigned_admin = _pick_receipt_admin()
+        assigned_profile = getattr(assigned_admin, 'subscription_receipt_admin_profile', None) if assigned_admin else None
+        serialized_profile = SubscriptionReceiptAdminProfileSerializer(assigned_profile).data if assigned_profile else None
+        return Response({
+            "payment_mode": "receipt",
+            "amount": prepared["amount"],
+            "period_type": prepared["period_type"],
+            "subscription_plan_name": prepared["subscription"].name if prepared["subscription"] else "Custom Subscription",
+            "bank_assignment": serialized_profile,
+            "bank_accounts": serialized_profile.get("bank_accounts", []) if serialized_profile else [],
+        }, status=status.HTTP_200_OK)
+
+    tx_ref = str(uuid.uuid4())
+    payment = Payment.objects.create(
+        user=prepared["user"],
+        gift_from=prepared["gift_from"],
+        provider='chapa',
+        subscription_plan=prepared["subscription"],
+        amount=prepared["amount"],
+        chapa_tx_ref=tx_ref,
+        start_date=prepared["start_date"],
+        end_date=prepared["end_date"],
+        period_type=prepared["period_type"],
+        status=prepared["status_value"],
+        payment_status=prepared["payment_status_value"],
+    )
+    if not prepared["subscription"] and prepared["grades"]:
+        payment.grade.set(prepared["grades"])
+    elif prepared["subscription"] and prepared["subscription"].grades.exists():
+        payment.grade.set(prepared["subscription"].grades.all())
+
+    payload = {
+        "amount": str(prepared["amount"]),
+        "currency": "ETB",
+        "email": prepared["user"].email,
+        "first_name": prepared["user"].first_name or "Customer",
+        "last_name": prepared["user"].last_name or "",
+        "tx_ref": tx_ref,
+        "return_url": return_url,
+    }
+    headers = {
+        "Authorization": f"Bearer {CHAPA_API_KEY}",
+        "Content-Type": "application/json",
+    }
+
+    chapa_response = requests.post(CHAPA_INIT_URL, json=payload, headers=headers).json()
+
+    if chapa_response.get("status") == "success":
+        return Response({
+            "checkout_url": chapa_response["data"]["checkout_url"],
+            "tx_ref": tx_ref
+        }, status=status.HTTP_200_OK)
+
+    return Response({"error": "Failed to initialize payment"}, status=status.HTTP_400_BAD_REQUEST)
+
     subscription_id = request.data.get("subscription_id")
     for_whom = request.data.get("for_whom")
     other_email = request.data.get("other_email")
@@ -425,6 +641,41 @@ def initialize_payment(request):
 def upload_receipt(request):
     serializer = UploadSubscriptionReceiptSerializer(data=request.data)
     serializer.is_valid(raise_exception=True)
+    if serializer.validated_data.get('payment_id') is None:
+        try:
+            prepared = _prepare_subscription_payment(request, request.data)
+        except ValueError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_400_BAD_REQUEST)
+        except LookupError as exc:
+            return Response({"error": str(exc)}, status=status.HTTP_404_NOT_FOUND)
+
+        bank_account_id = serializer.validated_data.get('bank_account_id')
+        selected_account = None
+        if bank_account_id is not None:
+            selected_account = SubscriptionReceiptAdminBankAccount.objects.select_related('profile__user').filter(
+                id=bank_account_id,
+                is_active=True,
+            ).first()
+            if not selected_account:
+                return Response({'error': 'Invalid bank account selection.'}, status=400)
+        else:
+            preview_admin = _pick_receipt_admin()
+            preview_profile = getattr(preview_admin, 'subscription_receipt_admin_profile', None) if preview_admin else None
+            preview_accounts = _get_receipt_accounts(preview_profile)
+            if len(preview_accounts) > 1:
+                return Response({'error': 'Bank account selection is required.'}, status=400)
+            selected_account = preview_accounts[0] if preview_accounts else None
+
+        payment = _create_subscription_receipt_payment(prepared, selected_account=selected_account)
+        payment.receipt_file = serializer.validated_data['receipt_file']
+        payment.selected_receipt_account = selected_account or payment.selected_receipt_account
+        if payment.selected_receipt_account and payment.assigned_admin_id != payment.selected_receipt_account.profile.user_id:
+            payment.assigned_admin = payment.selected_receipt_account.profile.user
+        payment.receipt_uploaded_at = timezone.now()
+        payment.payment_status = 'pending'
+        payment.save(update_fields=['receipt_file', 'selected_receipt_account', 'assigned_admin', 'receipt_uploaded_at', 'payment_status'])
+        return Response({'message': 'Receipt uploaded successfully.', 'payment': PaymentSerializer(payment).data})
+
     payment = Payment.objects.filter(id=serializer.validated_data['payment_id'], user=request.user).first()
     if not payment:
         return Response({'error': 'Payment not found.'}, status=404)

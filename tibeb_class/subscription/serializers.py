@@ -108,7 +108,7 @@ class SubscriptionPaymentConfigurationSerializer(serializers.ModelSerializer):
 
 
 class UploadSubscriptionReceiptSerializer(serializers.Serializer):
-    payment_id = serializers.IntegerField()
+    payment_id = serializers.IntegerField(required=False)
     bank_account_id = serializers.IntegerField(required=False)
     receipt_file = serializers.FileField()
 
