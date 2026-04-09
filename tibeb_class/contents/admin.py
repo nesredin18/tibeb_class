@@ -1,9 +1,20 @@
 from django.contrib import admin
+from django.contrib import messages
 from django.db.models import Q
+from django.shortcuts import redirect, render
+from django.urls import path, reverse
 from import_export import fields, resources
 from import_export.admin import ImportExportModelAdmin
 from import_export.widgets import ManyToManyWidget
 
+from .forms import (
+    BulkChapterCreateForm,
+    BulkSubjectCreateForm,
+    BulkSubsectionCreateForm,
+    parse_bulk_lines,
+    parse_decimal_number,
+    parse_positive_int,
+)
 from .models import (
     Book,
     Chapter,
@@ -367,6 +378,49 @@ class SubjectAdmin(admin.ModelAdmin):
     list_display = ("id", "name", "grade", "rank", "is_active")
     search_fields = ("name", "description", "grade__name")
     list_filter = ("is_active", HierarchicalGradeFilter)
+    change_list_template = "admin/contents/bulk_enabled_change_list.html"
+
+    def get_urls(self):
+        return [
+            path("bulk-create/", self.admin_site.admin_view(self.bulk_create_view), name="contents_subject_bulk_create"),
+            *super().get_urls(),
+        ]
+
+    def bulk_create_view(self, request):
+        form = BulkSubjectCreateForm(request.POST or None)
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "title": "Bulk create subjects",
+            "form": form,
+            "submit_label": "Create subjects",
+            "back_url": reverse("admin:contents_subject_changelist"),
+        }
+        if request.method == "POST" and form.is_valid():
+            grade = form.cleaned_data["grade"]
+            is_active = form.cleaned_data["is_active"]
+            rows = parse_bulk_lines(form.cleaned_data["subjects"])
+            next_rank = (Subject.objects.filter(grade=grade).order_by("-rank").values_list("rank", flat=True).first() or 0) + 1
+            created = 0
+            try:
+                for rank_value, name in rows:
+                    if not name:
+                        continue
+                    rank = parse_positive_int(rank_value) if rank_value is not None else next_rank
+                    Subject.objects.create(
+                        grade=grade,
+                        name=name,
+                        rank=rank,
+                        is_active=is_active,
+                    )
+                    created += 1
+                    next_rank = max(next_rank, rank + 1)
+            except ValueError:
+                form.add_error("subjects", "Invalid line format. Use either `Subject Name` or `rank|Subject Name`.")
+                return render(request, "admin/contents/bulk_create_form.html", context)
+            self.message_user(request, f"Created {created} subjects for {grade.name}.", level=messages.SUCCESS)
+            return redirect("admin:contents_subject_changelist")
+        return render(request, "admin/contents/bulk_create_form.html", context)
 
 
 @admin.register(Chapter)
@@ -378,6 +432,52 @@ class ChapterAdmin(admin.ModelAdmin):
         HierarchicalGradeFilter,
         HierarchicalSubjectFilter,
     )
+    change_list_template = "admin/contents/bulk_enabled_change_list.html"
+
+    def get_urls(self):
+        return [
+            path("bulk-create/", self.admin_site.admin_view(self.bulk_create_view), name="contents_chapter_bulk_create"),
+            *super().get_urls(),
+        ]
+
+    def bulk_create_view(self, request):
+        form = BulkChapterCreateForm(request.POST or None)
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "title": "Bulk create chapters",
+            "form": form,
+            "submit_label": "Create chapters",
+            "back_url": reverse("admin:contents_chapter_changelist"),
+        }
+        if request.method == "POST" and form.is_valid():
+            subject = form.cleaned_data["subject"]
+            is_active = form.cleaned_data["is_active"]
+            rows = parse_bulk_lines(form.cleaned_data["chapters"])
+            next_number = (Chapter.objects.filter(subject=subject).order_by("-chapter_number").values_list("chapter_number", flat=True).first() or 0) + 1
+            next_rank = (Chapter.objects.filter(subject=subject).order_by("-rank").values_list("rank", flat=True).first() or 0) + 1
+            created = 0
+            try:
+                for number_value, title in rows:
+                    if not title:
+                        continue
+                    chapter_number = parse_positive_int(number_value) if number_value is not None else next_number
+                    Chapter.objects.create(
+                        subject=subject,
+                        title=title,
+                        chapter_number=chapter_number,
+                        rank=next_rank,
+                        is_active=is_active,
+                    )
+                    created += 1
+                    next_number = max(next_number, chapter_number + 1)
+                    next_rank += 1
+            except ValueError:
+                form.add_error("chapters", "Invalid line format. Use either `Chapter Title` or `chapter_number|Chapter Title`.")
+                return render(request, "admin/contents/bulk_create_form.html", context)
+            self.message_user(request, f"Created {created} chapters for {subject.name}.", level=messages.SUCCESS)
+            return redirect("admin:contents_chapter_changelist")
+        return render(request, "admin/contents/bulk_create_form.html", context)
 
 
 @admin.register(Subsection)
@@ -403,6 +503,57 @@ class SubsectionAdmin(admin.ModelAdmin):
         HierarchicalSubjectFilter,
         HierarchicalChapterFilter,
     )
+    change_list_template = "admin/contents/bulk_enabled_change_list.html"
+
+    def get_urls(self):
+        return [
+            path("bulk-create/", self.admin_site.admin_view(self.bulk_create_view), name="contents_subsection_bulk_create"),
+            *super().get_urls(),
+        ]
+
+    def bulk_create_view(self, request):
+        form = BulkSubsectionCreateForm(request.POST or None)
+        context = {
+            **self.admin_site.each_context(request),
+            "opts": self.model._meta,
+            "title": "Bulk create subsections",
+            "form": form,
+            "submit_label": "Create subsections",
+            "back_url": reverse("admin:contents_subsection_changelist"),
+        }
+        if request.method == "POST" and form.is_valid():
+            chapter = form.cleaned_data["chapter"]
+            is_active = form.cleaned_data["is_active"]
+            rows = parse_bulk_lines(form.cleaned_data["subsections"])
+            next_rank = (Subsection.objects.filter(chapter=chapter).order_by("-rank").values_list("rank", flat=True).first() or 0) + 1
+            existing_numbers = list(
+                Subsection.objects.filter(chapter=chapter, subsection_number__isnull=False)
+                .order_by("-subsection_number")
+                .values_list("subsection_number", flat=True)
+            )
+            next_number = existing_numbers[0] + 1 if existing_numbers else 1
+            created = 0
+            try:
+                for number_value, title in rows:
+                    if not title:
+                        continue
+                    subsection_number = parse_decimal_number(number_value) if number_value is not None else next_number
+                    Subsection.objects.create(
+                        chapter=chapter,
+                        title=title,
+                        subsection_number=subsection_number,
+                        rank=next_rank,
+                        is_active=is_active,
+                    )
+                    created += 1
+                    next_rank += 1
+                    next_number = subsection_number + 1
+            except ValueError:
+                form.add_error("subsections", "Invalid line format. Use either `Subsection Title` or `subsection_number|Subsection Title`.")
+                return render(request, "admin/contents/bulk_create_form.html", context)
+            self.message_user(request, f"Created {created} subsections for {chapter.title}.", level=messages.SUCCESS)
+            return redirect("admin:contents_subsection_changelist")
+        return render(request, "admin/contents/bulk_create_form.html", context)
 
 
 admin.site.register(Option)
