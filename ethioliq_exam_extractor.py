@@ -82,6 +82,25 @@ def clean_text_from_html(html: Optional[str]) -> str:
     return text.strip()
 
 
+def value_to_html(value) -> str:
+    if value is None:
+        return ""
+    if isinstance(value, str):
+        return value if "<" in value else f"<p>{value}</p>"
+    if isinstance(value, list):
+        return "".join(value_to_html(item) for item in value if item not in (None, "", [], {}))
+    if isinstance(value, dict):
+        for key in ("html", "content", "text", "value", "body", "question", "passage", "description"):
+            if value.get(key):
+                return value_to_html(value[key])
+        return "".join(
+            value_to_html(item)
+            for item in value.values()
+            if item not in (None, "", [], {})
+        )
+    return f"<p>{value}</p>"
+
+
 def ensure_directory(path: Path) -> None:
     path.mkdir(parents=True, exist_ok=True)
 
@@ -167,10 +186,16 @@ def build_context_html(question_item: Dict) -> str:
         value = question_item.get(field_name)
         if not value:
             continue
-        if "<" in str(value):
-            parts.append(str(value))
+        rendered = value_to_html(value).strip()
+        if not rendered:
+            continue
+
+        rendered_soup = BeautifulSoup(rendered, "html.parser")
+        first_text = rendered_soup.get_text(" ", strip=True).lower()
+        if title.lower() in first_text[: len(title) + 5]:
+            parts.append(str(rendered_soup))
         else:
-            parts.append(f"<p><strong>{title}:</strong> {value}</p>")
+            parts.append(f"<div><p><strong>{title}:</strong></p>{str(rendered_soup)}</div>")
     return "".join(parts)
 
 
