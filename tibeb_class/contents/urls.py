@@ -1,12 +1,13 @@
 from django.urls import path
 from .views import (
-    get_exercise_progress, get_grades, get_subjects, get_books, get_chapters, get_subsections,
+    get_announcements, get_exercise_progress, get_grades, get_subjects, get_books, get_chapters, get_subsections,
     get_exercises, get_videos,featured_subjects, protected_book_stream, protected_video_stream,subjects_by_grade,
     chapters_by_subject, subsections_by_chapter,
     get_chapter_by_id, get_subsection_by_id,get_content_by_type_and_level,get_video_key,get_exercise_question,submit_answer,get_video_playlist,get_video_key
 )
 
 urlpatterns = [
+    path('announcements/', get_announcements, name='get-announcements'),
     path('grades/', get_grades, name='get-grades'),
     path('grades/<int:grade_id>/subjects/', subjects_by_grade, name='subjects-by-grade'),
     path('subjects/', get_subjects, name='get-subjects'),

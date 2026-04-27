@@ -16,6 +16,7 @@ from .forms import (
     parse_positive_int,
 )
 from .models import (
+    Announcement,
     Book,
     Chapter,
     Exercise,
@@ -26,6 +27,14 @@ from .models import (
     Subsection,
     Video,
 )
+
+
+@admin.register(Announcement)
+class AnnouncementAdmin(admin.ModelAdmin):
+    list_display = ("id", "title", "platform", "rank", "is_active", "updated_at")
+    list_filter = ("platform", "is_active")
+    search_fields = ("title", "text", "link")
+    ordering = ("rank", "-updated_at")
 
 
 def _safe_int(value):

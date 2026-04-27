@@ -18,6 +18,30 @@ class Grade(models.Model):
         return self.name
 
 
+class Announcement(models.Model):
+    PLATFORM_CHOICES = (
+        ("both", "Both"),
+        ("web", "Web only"),
+        ("mobile", "Mobile only"),
+    )
+
+    title = models.CharField(max_length=200)
+    text = models.TextField()
+    image = models.FileField(upload_to="announcements/", blank=True, null=True)
+    link = models.CharField(max_length=500, blank=True)
+    platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, default="both")
+    is_active = models.BooleanField(default=True)
+    rank = models.PositiveIntegerField(default=0)
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ("rank", "-created_at", "-id")
+
+    def __str__(self):
+        return self.title
+
+
 class Subject(models.Model):
     grade = models.ForeignKey(Grade, on_delete=models.CASCADE, related_name='subjects')
     name = models.CharField(max_length=100)

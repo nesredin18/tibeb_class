@@ -2,6 +2,7 @@ import os
 from django.conf import settings
 from django.http import FileResponse, Http404, HttpResponse, HttpResponseForbidden
 from django.shortcuts import get_object_or_404
+from django.db.models import Q
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
 from rest_framework import status
@@ -10,8 +11,8 @@ from subscription.models import Payment
 from configuration.models import Configuration
 from tibeb_class.permissions import IsVerified
 from user.models import ExerciseProgress, QuestionProgress
-from .models import Grade, Subject, Book, Chapter, Subsection, Exercise, Video
-from .serializers import GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer
+from .models import Announcement, Grade, Subject, Book, Chapter, Subsection, Exercise, Video
+from .serializers import AnnouncementSerializer, GradeSerializer, QuestionSerializer, SubjectSerializer, BookSerializer, ChapterSerializer, SubsectionSerializer, ExerciseSerializer, VideoSerializer
 import random
 from fuzzywuzzy import fuzz
 from .models import Question, Option
@@ -25,6 +26,20 @@ from django.utils import timezone
 def get_grades(request):
     grades = Grade.objects.all().order_by('rank')
     serializer = GradeSerializer(grades, many=True)
+    return Response(serializer.data)
+
+
+@api_view(['GET'])
+def get_announcements(request):
+    platform = (request.query_params.get('platform') or '').strip().lower()
+    announcements = Announcement.objects.filter(is_active=True)
+    if platform in {'web', 'mobile'}:
+        announcements = announcements.filter(Q(platform='both') | Q(platform=platform))
+    serializer = AnnouncementSerializer(
+        announcements,
+        many=True,
+        context={'request': request},
+    )
     return Response(serializer.data)
 
 @api_view(['GET'])
