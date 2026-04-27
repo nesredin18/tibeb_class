@@ -29,6 +29,7 @@ class Announcement(models.Model):
     text = models.TextField()
     image = models.FileField(upload_to="announcements/", blank=True, null=True)
     link = models.CharField(max_length=500, blank=True)
+    guide_link = models.CharField(max_length=500, blank=True)
     platform = models.CharField(max_length=20, choices=PLATFORM_CHOICES, default="both")
     is_active = models.BooleanField(default=True)
     rank = models.PositiveIntegerField(default=0)

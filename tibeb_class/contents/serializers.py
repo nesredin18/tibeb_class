@@ -14,6 +14,7 @@ class AnnouncementSerializer(serializers.ModelSerializer):
             'image',
             'image_url',
             'link',
+            'guide_link',
             'platform',
             'rank',
         ]
