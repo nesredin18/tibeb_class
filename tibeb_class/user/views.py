@@ -156,6 +156,10 @@ def login(request):
         'refresh': str(refresh),
         'user': get_user_identity_payload(user)
     }, status=status.HTTP_200_OK)
+def is_valid_registration_password(password):
+    return isinstance(password, str) and len(password) >= 4
+
+
 def is_strong_password(password):
     return (
         len(password) >= 8 and
@@ -200,9 +204,9 @@ def signup(request):
     elif phone:  
         data['username'] = phone 
         data['username_type'] = 'phone'
-    if not is_strong_password(data.get('password')):
+    if not is_valid_registration_password(data.get('password')):
         return Response({'password': [
-            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+            "Password must be at least 4 characters."
         ]}, status=status.HTTP_400_BAD_REQUEST)
     # Handle grades input (supports list or single value)
     grade_ids = data.getlist('grades') if hasattr(data, 'getlist') else data.get('grades', [])
@@ -344,9 +348,9 @@ def reset_password(request, uidb64, token):
     password = request.data.get('password')
     if not password:
         return Response({'error': 'Password is required'}, status=status.HTTP_400_BAD_REQUEST)
-    if not is_strong_password(password):
+    if not is_valid_registration_password(password):
         return Response({'password': [
-            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+            "Password must be at least 4 characters."
         ]}, status=status.HTTP_400_BAD_REQUEST)
 
     try:
@@ -377,9 +381,9 @@ def change_password(request):
 
     if new_password != confirm_password:
         return Response({'error': 'New password and confirm password do not match.'}, status=status.HTTP_400_BAD_REQUEST)
-    if not is_strong_password(new_password):
+    if not is_valid_registration_password(new_password):
         return Response({'password': [
-            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+            "Password must be at least 4 characters."
         ]}, status=status.HTTP_400_BAD_REQUEST)
     if not user.check_password(old_password):
         return Response({'error': 'Old password is incorrect.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -677,9 +681,9 @@ def add_child_account(request):
         elif phone:  
             child_data['username'] = phone 
             child_data['username_type'] = 'phone'
-        if not is_strong_password(child_data.get('password')):
+        if not is_valid_registration_password(child_data.get('password')):
             return Response({'password': [
-            "Password must be at least 8 characters, include uppercase, lowercase, number, and special character."
+            "Password must be at least 4 characters."
         ]}, status=status.HTTP_400_BAD_REQUEST)        
         grade_ids = child_data.getlist('grades') if hasattr(child_data, 'getlist') else child_data.get('grades', [])
         if isinstance(grade_ids, str):
