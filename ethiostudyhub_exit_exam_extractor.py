@@ -318,6 +318,40 @@ def absolute_image_url(src: str) -> str:
     return f"{BASE_URL}/{src.lstrip('/')}"
 
 
+def mojibake_score(value: str) -> int:
+    if not value:
+        return 0
+    suspicious_tokens = ("Ã", "Â", "â", "Ï", "Ð", "Ñ", "�")
+    score = sum(value.count(token) for token in suspicious_tokens)
+    score += sum(1 for char in value if 0x80 <= ord(char) <= 0x9F)
+    return score
+
+
+def repair_mojibake(value: str) -> str:
+    if not value:
+        return value
+
+    baseline_score = mojibake_score(value)
+    if baseline_score == 0:
+        return value
+
+    best = value
+    best_score = baseline_score
+
+    for source_encoding in ("cp1252", "latin1"):
+        try:
+            candidate = value.encode(source_encoding).decode("utf-8")
+        except Exception:
+            continue
+
+        candidate_score = mojibake_score(candidate)
+        if candidate_score < best_score:
+            best = candidate
+            best_score = candidate_score
+
+    return best
+
+
 def render_node_to_html(value) -> Tuple[str, List[str]]:
     image_urls: List[str] = []
 
@@ -325,7 +359,7 @@ def render_node_to_html(value) -> Tuple[str, List[str]]:
         if node is None:
             return ""
         if isinstance(node, str):
-            return html.escape(node)
+            return html.escape(repair_mojibake(node))
         if isinstance(node, (int, float, bool)):
             return html.escape(str(node))
         if isinstance(node, list):
@@ -386,7 +420,7 @@ def question_value_to_html_and_text(value) -> Tuple[str, str, List[str]]:
 
 
 def explanation_to_html_and_text(value: str) -> Tuple[str, str, List[str]]:
-    rendered = normalize_html_fragment(html.escape(value))
+    rendered = normalize_html_fragment(html.escape(repair_mojibake(value)))
     rendered = rendered.replace("\n", "<br/>")
     return rendered, html_to_text(rendered), []
 
