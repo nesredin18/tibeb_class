@@ -1,5 +1,6 @@
 from datetime import timedelta
 import json
+import logging
 from django.utils import timezone
 from rest_framework.decorators import api_view
 from rest_framework.response import Response
@@ -34,11 +35,16 @@ from django.core.mail import EmailMultiAlternatives
 from django.utils.html import strip_tags
 from tibeb_class.email_templates import EmailTemplateHelper
 from user.utils import send_sms_otp
+from urllib.parse import urljoin
 
 
+logger = logging.getLogger(__name__)
 
-
-
+RECEIPT_VERIFIER_ENABLED = getattr(settings, "SUBSCRIPTION_RECEIPT_VERIFIER_ENABLED", False)
+RECEIPT_VERIFIER_BASE_URL = (getattr(settings, "SUBSCRIPTION_RECEIPT_VERIFIER_BASE_URL", "") or "").rstrip("/")
+RECEIPT_VERIFIER_API_KEY = getattr(settings, "SUBSCRIPTION_RECEIPT_VERIFIER_API_KEY", "")
+RECEIPT_VERIFIER_TIMEOUT = int(getattr(settings, "SUBSCRIPTION_RECEIPT_VERIFIER_TIMEOUT", 30))
+RECEIPT_VERIFIER_WEBHOOK_SECRET = getattr(settings, "SUBSCRIPTION_RECEIPT_VERIFIER_WEBHOOK_SECRET", "")
 
 @api_view(['GET'])
 def get_subscription_plans(request):
@@ -162,6 +168,14 @@ def _get_user_notification_contact(user):
     return '', ''
 
 
+def _append_review_note(existing_note, new_note):
+    existing = (existing_note or "").strip()
+    extra = (new_note or "").strip()
+    if not extra:
+        return existing
+    return f"{existing}\n\n{extra}" if existing else extra
+
+
 def _send_receipt_approved_notification(user):
     target, contact_type = _get_user_notification_contact(user)
     if not target:
@@ -195,10 +209,13 @@ def _send_receipt_approved_notification(user):
         send_sms_otp(target, "Your Tibeb Class receipt payment was approved successfully.")
 
 
-def _send_receipt_rejected_notification(user):
+def _send_receipt_rejected_notification(user, reason=""):
     target, contact_type = _get_user_notification_contact(user)
     if not target:
         return
+    reason_text = (reason or "").strip()
+    reason_html = f"<p style=\"color:#4b5563;font-size:14px;margin:0 0 24px;\"><strong>Reason:</strong> {reason_text}</p>" if reason_text else ""
+    reason_sms = f" Reason: {reason_text}" if reason_text else ""
     if contact_type == 'email':
         html = f"""
         <div style="font-family:'Roboto',Arial,sans-serif;background-color:#f9fafb;padding:0;margin:0;">
@@ -211,6 +228,7 @@ def _send_receipt_rejected_notification(user):
               <p style="color:#4b5563;font-size:14px;margin:0 0 24px;">
                 Your Tibeb Class receipt payment was rejected. Please upload a valid receipt or contact support.
               </p>
+              {reason_html}
             </div>
             {EmailTemplateHelper._footer()}
           </div>
@@ -225,7 +243,7 @@ def _send_receipt_rejected_notification(user):
         msg.attach_alternative(html, "text/html")
         msg.send(fail_silently=True)
     else:
-        send_sms_otp(target, "Your Tibeb Class receipt payment was rejected. Please upload a valid receipt or contact support.")
+        send_sms_otp(target, f"Your Tibeb Class receipt payment was rejected. Please upload a valid receipt or contact support.{reason_sms}")
 
 
 def _build_receipt_admin_token(user):
@@ -245,6 +263,279 @@ def _is_receipt_manager(user):
         or getattr(user, "is_superuser", False)
         or hasattr(user, "subscription_receipt_admin_profile")
     )
+
+
+def _build_receipt_verifier_headers():
+    headers = {
+        "Accept": "application/json",
+    }
+    if RECEIPT_VERIFIER_API_KEY:
+        headers["X-EthioVerify-Key"] = RECEIPT_VERIFIER_API_KEY
+    return headers
+
+
+def _build_receipt_verifier_webhook_url():
+    base = (getattr(settings, "BACKEND_URL", "") or "").rstrip("/")
+    if not base:
+        return ""
+    return f"{base}/api/subscription-plans/receipt-verifier-webhook/"
+
+
+def _get_receipt_absolute_url(payment):
+    if not payment.receipt_file:
+        return ""
+    url = payment.receipt_file.url
+    if url.startswith("http://") or url.startswith("https://"):
+        return url
+    base = (getattr(settings, "BACKEND_URL", "") or "").rstrip("/")
+    return f"{base}{url}" if base and url.startswith("/") else f"{base}/{url.lstrip('/')}" if base else url
+
+
+def _extract_verifier_data(payload):
+    if isinstance(payload, dict):
+        for key in ("data", "result", "payment", "record"):
+            value = payload.get(key)
+            if isinstance(value, dict):
+                return value
+    return payload if isinstance(payload, dict) else {}
+
+
+def _extract_verifier_status(payload):
+    data = _extract_verifier_data(payload)
+    candidates = [
+        payload.get("status") if isinstance(payload, dict) else None,
+        payload.get("verification_status") if isinstance(payload, dict) else None,
+        payload.get("state") if isinstance(payload, dict) else None,
+        payload.get("event") if isinstance(payload, dict) else None,
+        data.get("status"),
+        data.get("verification_status"),
+        data.get("state"),
+        data.get("result"),
+    ]
+    for candidate in candidates:
+        if candidate:
+            return str(candidate).strip().lower()
+    return ""
+
+
+def _extract_verifier_reference(payload):
+    data = _extract_verifier_data(payload)
+    candidates = [
+        payload.get("merchant_order_id") if isinstance(payload, dict) else None,
+        payload.get("reference") if isinstance(payload, dict) else None,
+        data.get("merchant_order_id"),
+        data.get("reference"),
+    ]
+    for candidate in candidates:
+        if candidate:
+            return str(candidate).strip()
+    return ""
+
+
+def _extract_verifier_note(payload):
+    data = _extract_verifier_data(payload)
+    candidates = [
+        payload.get("reason") if isinstance(payload, dict) else None,
+        payload.get("message") if isinstance(payload, dict) else None,
+        payload.get("detail") if isinstance(payload, dict) else None,
+        payload.get("note") if isinstance(payload, dict) else None,
+        data.get("reason"),
+        data.get("message"),
+        data.get("detail"),
+        data.get("note"),
+    ]
+    for candidate in candidates:
+        if candidate:
+            return str(candidate).strip()
+    return ""
+
+
+def _is_verifier_approved_status(status_value):
+    return status_value in {"verified", "approved", "success", "completed", "matched", "payment.verified"}
+
+
+def _is_verifier_rejected_status(status_value):
+    return status_value in {"rejected", "failed", "declined", "invalid", "manual-rejected", "manual_rejected", "manual_failed", "payment.failed_after_manual_check"}
+
+
+def _is_verifier_pending_status(status_value):
+    return status_value in {"pending", "processing", "review", "manual-review", "manual_review", "queued", "verifying"}
+
+
+def _normalize_verifier_bank(bank_name):
+    value = (bank_name or "").strip().lower()
+    if not value:
+        return ""
+    mappings = {
+        "commercial bank of ethiopia": "cbe",
+        "cbe": "cbe",
+        "bank of abyssinia": "abyssinia",
+        "abyssinia": "abyssinia",
+        "cbe birr": "cbe_birr",
+        "cbebirr": "cbe_birr",
+        "telebirr": "telebirr",
+        "dashen": "dashen",
+        "dashen bank": "dashen",
+        "m-pesa": "mpesa",
+        "mpesa": "mpesa",
+    }
+    return mappings.get(value, "")
+
+
+def _build_receipt_verifier_request_data(payment):
+    selected_account = payment.selected_receipt_account
+    bank_code = _normalize_verifier_bank(getattr(selected_account, "bank_name", ""))
+    receiver_name = (
+        (getattr(selected_account, "account_holder_name", "") or "").strip()
+        or (payment.assigned_admin.get_full_name().strip() if payment.assigned_admin else "")
+        or (payment.assigned_admin.username if payment.assigned_admin else "")
+    )
+
+    payload = {
+        "amount": str(payment.amount),
+        "receiver_name": receiver_name,
+        "merchant_order_id": payment.chapa_tx_ref,
+    }
+    if bank_code:
+        payload["bank"] = bank_code
+
+    account_number = (getattr(selected_account, "account_number", "") or "").strip()
+    if bank_code in {"cbe", "abyssinia"} and account_number:
+        payload["account_suffix"] = account_number
+    if bank_code == "cbe_birr" and account_number:
+        payload["phone_number"] = account_number
+    return payload
+
+
+def _approve_receipt_payment(payment, *, reviewer=None, note="", source="manual"):
+    if payment.payment_status == 'completed':
+        return False
+    payment.reviewed_by = reviewer
+    payment.review_note = _append_review_note(payment.review_note, note or f"Receipt approved via {source}.")
+    payment.reviewed_at = timezone.now()
+    payment.payment_status = 'completed'
+    payment.status = 'active' if payment.start_date <= timezone.now() else 'pending'
+    payment.save(update_fields=['payment_status', 'status', 'reviewed_by', 'review_note', 'reviewed_at'])
+    _send_receipt_approved_notification(payment.user)
+    return True
+
+
+def _decline_receipt_payment(payment, *, reviewer=None, note="", source="manual"):
+    if payment.payment_status == 'failed':
+        return False
+    payment.reviewed_by = reviewer
+    payment.review_note = _append_review_note(payment.review_note, note or f"Receipt rejected via {source}.")
+    payment.reviewed_at = timezone.now()
+    payment.payment_status = 'failed'
+    payment.save(update_fields=['payment_status', 'reviewed_by', 'review_note', 'reviewed_at'])
+    _send_receipt_rejected_notification(payment.user, reason=note)
+    return True
+
+
+def _trigger_receipt_auto_verification(payment):
+    if not RECEIPT_VERIFIER_ENABLED or not RECEIPT_VERIFIER_BASE_URL or not RECEIPT_VERIFIER_API_KEY:
+        return {"attempted": False, "reason": "Verifier is not configured."}
+
+    verify_url = urljoin(f"{RECEIPT_VERIFIER_BASE_URL}/", "gateway/verify-direct/")
+    payload = _build_receipt_verifier_request_data(payment)
+
+    files = None
+    file_handle = None
+    try:
+        if payment.receipt_file:
+            payment.receipt_file.open("rb")
+            file_handle = payment.receipt_file.file
+            files = {
+                "receipt": (
+                    payment.receipt_file.name.split("/")[-1],
+                    file_handle,
+                    getattr(file_handle, "content_type", None) or "application/octet-stream",
+                )
+            }
+
+        response = requests.post(
+            verify_url,
+            headers=_build_receipt_verifier_headers(),
+            data=payload,
+            files=files,
+            timeout=RECEIPT_VERIFIER_TIMEOUT,
+        )
+        try:
+            response_payload = response.json()
+        except ValueError:
+            response_payload = {"raw": response.text}
+
+        status_value = _extract_verifier_status(response_payload)
+        note = _extract_verifier_note(response_payload) or f"Verifier response status: {status_value or response.status_code}."
+        logger.info(
+            "Receipt auto verification response. payment_id=%s status_code=%s verifier_status=%s payload=%s",
+            payment.id,
+            response.status_code,
+            status_value,
+            response_payload,
+        )
+
+        if response.ok and _is_verifier_approved_status(status_value):
+            _approve_receipt_payment(
+                payment,
+                note=f"Auto-approved by EthioVerify. {note}".strip(),
+                source="ethioverify",
+            )
+            return {"attempted": True, "approved": True, "payload": response_payload}
+
+        if response.ok and (_is_verifier_pending_status(status_value) or not status_value):
+            payment.review_note = _append_review_note(payment.review_note, f"EthioVerify pending: {note}")
+            payment.save(update_fields=["review_note"])
+            return {"attempted": True, "approved": False, "payload": response_payload}
+
+        payment.review_note = _append_review_note(payment.review_note, f"EthioVerify did not auto-approve: {note}")
+        payment.save(update_fields=["review_note"])
+        return {"attempted": True, "approved": False, "payload": response_payload}
+    except requests.RequestException as exc:
+        logger.warning("Receipt auto verification request failed. payment_id=%s error=%s", payment.id, exc)
+        payment.review_note = _append_review_note(payment.review_note, f"EthioVerify request failed: {exc}")
+        payment.save(update_fields=["review_note"])
+        return {"attempted": True, "approved": False, "error": str(exc)}
+    finally:
+        if payment.receipt_file:
+            payment.receipt_file.close()
+
+
+def _is_valid_receipt_verifier_webhook(request):
+    auth_header = (request.headers.get("Authorization") or "").strip()
+    bearer_token = auth_header.split(" ", 1)[1].strip() if auth_header.lower().startswith("bearer ") and " " in auth_header else ""
+    presented = {
+        (request.headers.get("X-API-Key") or "").strip(),
+        (request.headers.get("x-api-key") or "").strip(),
+        (request.headers.get("X-Webhook-Secret") or "").strip(),
+        bearer_token,
+    }
+    presented.discard("")
+    if RECEIPT_VERIFIER_WEBHOOK_SECRET and RECEIPT_VERIFIER_WEBHOOK_SECRET in presented:
+        return True
+    if RECEIPT_VERIFIER_API_KEY and RECEIPT_VERIFIER_API_KEY in presented:
+        return True
+    return False
+
+
+def _find_receipt_payment_for_webhook(payload):
+    reference = _extract_verifier_reference(payload)
+    data = _extract_verifier_data(payload)
+    payment_id = None
+    for candidate in (
+        payload.get("payment_id") if isinstance(payload, dict) else None,
+        data.get("payment_id"),
+    ):
+        if candidate not in (None, ""):
+            payment_id = str(candidate).strip()
+            break
+
+    payment = None
+    if payment_id and payment_id.isdigit():
+        payment = Payment.objects.filter(id=int(payment_id), provider="receipt").first()
+    if payment is None and reference:
+        payment = Payment.objects.filter(chapa_tx_ref=reference, provider="receipt").first()
+    return payment
 
 
 @api_view(['GET'])
@@ -707,7 +998,11 @@ def upload_receipt(request):
         payment.receipt_uploaded_at = timezone.now()
         payment.payment_status = 'pending'
         payment.save(update_fields=['receipt_file', 'selected_receipt_account', 'assigned_admin', 'receipt_uploaded_at', 'payment_status'])
-        return Response({'message': 'Receipt uploaded successfully.', 'payment': PaymentSerializer(payment).data})
+        verification_result = _trigger_receipt_auto_verification(payment)
+        message = 'Receipt uploaded successfully.'
+        if verification_result.get("approved"):
+            message = 'Receipt uploaded and approved automatically.'
+        return Response({'message': message, 'payment': PaymentSerializer(payment).data})
 
     payment = Payment.objects.filter(id=serializer.validated_data['payment_id'], user=request.user).first()
     if not payment:
@@ -737,7 +1032,11 @@ def upload_receipt(request):
     payment.receipt_uploaded_at = timezone.now()
     payment.payment_status = 'pending'
     payment.save(update_fields=['receipt_file', 'selected_receipt_account', 'receipt_uploaded_at', 'payment_status'])
-    return Response({'message': 'Receipt uploaded successfully.', 'payment': PaymentSerializer(payment).data})
+    verification_result = _trigger_receipt_auto_verification(payment)
+    message = 'Receipt uploaded successfully.'
+    if verification_result.get("approved"):
+        message = 'Receipt uploaded and approved automatically.'
+    return Response({'message': message, 'payment': PaymentSerializer(payment).data})
 
 
 @api_view(['POST'])
@@ -812,21 +1111,63 @@ def review_receipt(request, payment_id):
     if action == 'decline' and payment.payment_status == 'failed':
         return Response({'error': 'This receipt is already declined.'}, status=400)
 
-    payment.reviewed_by = request.user
-    payment.review_note = note
-    payment.reviewed_at = timezone.now()
-
     if action == 'approve':
-        payment.payment_status = 'completed'
-        payment.status = 'active' if payment.start_date <= timezone.now() else 'pending'
-        _send_receipt_approved_notification(payment.user)
+        _approve_receipt_payment(payment, reviewer=request.user, note=note, source="receipt-admin")
     else:
-        payment.payment_status = 'failed'
-        _send_receipt_rejected_notification(payment.user)
-
-    payment.save(update_fields=['payment_status', 'status', 'reviewed_by', 'review_note', 'reviewed_at'])
+        _decline_receipt_payment(payment, reviewer=request.user, note=note, source="receipt-admin")
     return Response({
         'message': f'Receipt {action}d successfully.',
+        'payment': PaymentSerializer(payment).data,
+    })
+
+
+@api_view(['POST'])
+@permission_classes([AllowAny])
+def receipt_verifier_webhook(request):
+    if not _is_valid_receipt_verifier_webhook(request):
+        return Response({'error': 'Invalid webhook credentials.'}, status=403)
+
+    payload = request.data if isinstance(request.data, dict) else {}
+    payment = _find_receipt_payment_for_webhook(payload)
+    if not payment:
+        logger.warning("Receipt verifier webhook could not match payment. payload=%s", payload)
+        return Response({'error': 'Receipt payment not found.'}, status=404)
+
+    status_value = _extract_verifier_status(payload)
+    note = _extract_verifier_note(payload)
+    logger.info(
+        "Receipt verifier webhook received. payment_id=%s verifier_status=%s payload=%s",
+        payment.id,
+        status_value,
+        payload,
+    )
+
+    if _is_verifier_approved_status(status_value):
+        changed = _approve_receipt_payment(
+            payment,
+            note=_append_review_note("", note or "Approved by EthioVerify webhook."),
+            source="ethioverify-webhook",
+        )
+        return Response({
+            'message': 'Receipt marked as approved.' if changed else 'Receipt was already approved.',
+            'payment': PaymentSerializer(payment).data,
+        })
+
+    if _is_verifier_rejected_status(status_value):
+        changed = _decline_receipt_payment(
+            payment,
+            note=note or "Rejected by EthioVerify webhook.",
+            source="ethioverify-webhook",
+        )
+        return Response({
+            'message': 'Receipt marked as rejected.' if changed else 'Receipt was already rejected.',
+            'payment': PaymentSerializer(payment).data,
+        })
+
+    payment.review_note = _append_review_note(payment.review_note, note or f"EthioVerify webhook status received: {status_value or 'pending'}.")
+    payment.save(update_fields=['review_note'])
+    return Response({
+        'message': 'Receipt remains pending manual review.',
         'payment': PaymentSerializer(payment).data,
     })
 
