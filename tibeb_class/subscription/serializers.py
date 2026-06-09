@@ -2,6 +2,7 @@ from rest_framework import serializers
 from django.contrib.auth import get_user_model
 from contents.models import  Grade
 from .models import Payment, SubscriptionPlan, SubscriptionPlanPricing, SubscriptionPaymentConfiguration, SubscriptionReceiptAdminProfile, SubscriptionReceiptAdminBankAccount
+from .receipt_storage import build_receipt_url
 
 User = get_user_model()
 
@@ -82,7 +83,7 @@ class PaymentSerializer(serializers.ModelSerializer):
 
     def get_receipt_file_url(self, obj):
         if obj.receipt_file:
-            return obj.receipt_file.url
+            return build_receipt_url(obj.receipt_file.name)
         return None
 
     def get_user_identifier(self, obj):

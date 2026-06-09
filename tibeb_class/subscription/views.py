@@ -21,6 +21,7 @@ from .serializers import (
     SubscriptionReceiptReviewSerializer,
     UploadSubscriptionReceiptSerializer,
 )
+from .receipt_storage import build_receipt_url, save_subscription_receipt_locally
 from rest_framework import status
 from decimal import Decimal
 import uuid,requests
@@ -288,11 +289,7 @@ def _build_receipt_verifier_webhook_url():
 def _get_receipt_absolute_url(payment):
     if not payment.receipt_file:
         return ""
-    url = payment.receipt_file.url
-    if url.startswith("http://") or url.startswith("https://"):
-        return url
-    base = (getattr(settings, "BACKEND_URL", "") or "").rstrip("/")
-    return f"{base}{url}" if base and url.startswith("/") else f"{base}/{url.lstrip('/')}" if base else url
+    return build_receipt_url(payment.receipt_file.name) or ""
 
 
 def _extract_verifier_data(payload):
@@ -1106,7 +1103,7 @@ def upload_receipt(request):
 
         payment = _create_subscription_receipt_payment(prepared, selected_account=selected_account)
         receipt_file = serializer.validated_data['receipt_file']
-        payment.receipt_file = receipt_file
+        payment.receipt_file.name = save_subscription_receipt_locally(receipt_file)
         payment.selected_receipt_account = selected_account or payment.selected_receipt_account
         if payment.selected_receipt_account and payment.assigned_admin_id != payment.selected_receipt_account.profile.user_id:
             payment.assigned_admin = payment.selected_receipt_account.profile.user
@@ -1149,7 +1146,7 @@ def upload_receipt(request):
             return Response({'error': 'Bank account selection is required.'}, status=400)
         selected_account = accounts[0] if accounts else None
     receipt_file = serializer.validated_data['receipt_file']
-    payment.receipt_file = receipt_file
+    payment.receipt_file.name = save_subscription_receipt_locally(receipt_file)
     payment.selected_receipt_account = selected_account
     payment.receipt_uploaded_at = timezone.now()
     payment.payment_status = 'pending'
