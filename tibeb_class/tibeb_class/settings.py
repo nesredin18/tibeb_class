@@ -270,6 +270,34 @@ SIMPLE_JWT = {
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
 
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "formatters": {
+        "standard": {
+            "format": "%(asctime)s [%(levelname)s] %(name)s: %(message)s",
+        },
+    },
+    "handlers": {
+        "console": {
+            "class": "logging.StreamHandler",
+            "formatter": "standard",
+        },
+        "tibeb_class_file": {
+            "class": "logging.FileHandler",
+            "filename": BASE_DIR / "tibeb_class.log",
+            "formatter": "standard",
+        },
+    },
+    "loggers": {
+        "subscription": {
+            "handlers": ["console", "tibeb_class_file"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
+
 # === TeleCloud OBS Storage Settings ===
 from django.core.files.storage import Storage
 

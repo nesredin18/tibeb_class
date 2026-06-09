@@ -2,6 +2,7 @@ import os
 import mimetypes
 import tempfile
 import time
+import uuid
 from django.core.files.storage import Storage
 from django.conf import settings
 from django.core.files.base import ContentFile
@@ -37,6 +38,20 @@ class TeleCloudOBSStorage(Storage):
     def _clean_name(self, name: str) -> str:
         return name.replace("\\", "/")
 
+    def get_available_name(self, name, max_length=None):
+        clean_name = self._clean_name(name)
+        directory, filename = os.path.split(clean_name)
+        stem, extension = os.path.splitext(filename)
+        unique_name = f"{stem}_{uuid.uuid4().hex}{extension}"
+        candidate = f"{directory}/{unique_name}" if directory else unique_name
+        if max_length and len(candidate) > max_length:
+            overflow = len(candidate) - max_length
+            stem = stem[:-overflow] if overflow < len(stem) else uuid.uuid4().hex[:12]
+            unique_name = f"{stem}_{uuid.uuid4().hex}{extension}"
+            candidate = f"{directory}/{unique_name}" if directory else unique_name
+            candidate = candidate[-max_length:]
+        return candidate
+
     def _get_content_type(self, name):
         content_type, _ = mimetypes.guess_type(name)
         return content_type or "application/octet-stream"
@@ -69,6 +84,10 @@ class TeleCloudOBSStorage(Storage):
         data = content.read()
         if isinstance(data, memoryview):
             data = data.tobytes()
+        try:
+            content.seek(0)
+        except Exception:
+            pass
 
         headers = {
             "Content-Type": self._get_content_type(key),
