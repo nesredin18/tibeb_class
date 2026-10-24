@@ -35,7 +35,7 @@ environ.Env.read_env(os.path.join(BASE_DIR, '.env'))
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-gvjj-s#onqj6vvtl7d7mmkscwr2b1s50@%y$c(#+-23$i@7fbi'
+SECRET_KEY = env("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = env('DEBUG')
@@ -170,11 +170,11 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 AUTH_USER_MODEL = 'user.CustomUser'
-CHAPA_API_KEY ='CHASECK_TEST-dclCApwJ3rgnUr8BWje3efcVxFXaQPmG'
+CHAPA_API_KEY = env("CHAPA_API_KEY", default="")
 CHAPA_INIT_URL = 'https://api.chapa.co/v1/transaction/initialize'
 CHAPA_CALLBACK_URL = 'https://tibebclass.com/api/payments/webhook/'
 DEFAULT_RETURN_URL = 'https://tibebclass.com/'
-CHAPA_WEBHOOK_SECRET = 'your_webhook_secret'
+CHAPA_WEBHOOK_SECRET = env("CHAPA_WEBHOOK_SECRET", default="")
 
 
 # Internationalization
@@ -206,7 +206,7 @@ STATICFILES_DIRS = [
     BASE_DIR / "static",
 ]
 
-AFROMESSAGE_TOKEN = "eyJhbGciOiJIUzI1NiJ9.eyJpZGVudGlmaWVyIjoiTW9pZ1NEZTljM2p3blpnRm43ZlhqNFF2ejZaTlBPUTMiLCJleHAiOjE5MTUzODEzNTksImlhdCI6MTc1NzYxNDk1OSwianRpIjoiMWUyMWViNjEtYzViOS00NzA2LThkYTUtZThiODJiOGE1YzZkIn0.Dq2sYpMl7gjj_S7ywSLHX-er6Ckpnq9VMybCswJVtTc"
+AFROMESSAGE_TOKEN = env("AFROMESSAGE_TOKEN", default="")
 AFROMESSAGE_FROM = "e80ad9d8-adf3-463f-80f4-7c4b39f7f164"
 AFROMESSAGE_SENDER = "YOUR_SENDER_NAME"
 AFROMESSAGE_CALLBACK = "YOUR_CALLBACK"
@@ -237,10 +237,7 @@ FRONTEND_URL = env("FRONTEND_URL", default="https://tibebclass.com")
 BACKEND_URL = env("BACKEND_URL", default="https://admin.tibebclass.com")
 EXAMS_FRONTEND_URL = env("EXAMS_FRONTEND_URL", default="https://exam.tibebclass.com")
 EXAMS_BACKEND_URL = env("EXAMS_BACKEND_URL", default="https://admin.exam.tibebclass.com")
-EXAMS_INTERNAL_API_KEY = env(
-    "EXAMS_INTERNAL_API_KEY",
-    default="tibeb-exams-internal-change-me",
-)
+EXAMS_INTERNAL_API_KEY = env("EXAMS_INTERNAL_API_KEY", default="")
 SUBSCRIPTION_RECEIPT_VERIFIER_ENABLED = env("SUBSCRIPTION_RECEIPT_VERIFIER_ENABLED", default=False)
 SUBSCRIPTION_RECEIPT_VERIFIER_BASE_URL = env("SUBSCRIPTION_RECEIPT_VERIFIER_BASE_URL", default="https://paymentverify.tibebclass.com")
 SUBSCRIPTION_RECEIPT_VERIFIER_API_KEY = env("SUBSCRIPTION_RECEIPT_VERIFIER_API_KEY", default="")
@@ -303,8 +300,8 @@ from django.core.files.storage import Storage
 
 DEFAULT_FILE_STORAGE = "configuration.storages_backends.TeleCloudOBSStorage"
 
-AWS_ACCESS_KEY_ID = "8HNOUA5GY9ZNWVPHUJMM"
-AWS_SECRET_ACCESS_KEY = "Rg1uVebTSYSTawXJcojAyWGjxrF74dzcizVI85QK"
+AWS_ACCESS_KEY_ID = env("AWS_ACCESS_KEY_ID", default="")
+AWS_SECRET_ACCESS_KEY = env("AWS_SECRET_ACCESS_KEY", default="")
 AWS_S3_ENDPOINT_URL = "https://obsv3.et-global-1.ethiotelecom.et"
 AWS_STORAGE_BUCKET_NAME = "tibebclass"
 AWS_S3_REGION_NAME = "et-global-1"
